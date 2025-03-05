@@ -29,6 +29,9 @@ let introVideo;
 let introVideoPlaying = true;
 let introVideoLoaded = false;
 
+let backgroundMusic;
+let musicVolume = 0.2; // 20% volume
+
 
 
 // AUDIO VARIABLES - Add these at the top with other global variables
@@ -150,6 +153,10 @@ function preload() {
       console.error('Failed to load BG_introVID.mp4:', e);
       introVideo = null;
     }
+
+    backgroundMusic = loadSound('constant_audio.mp3', 
+      () => console.log('Background music loaded successfully'), 
+      (err) => console.error('Failed to load background music:', err));
     
     // Load barista selection background
     baristaSelectionBackground = loadGameImage('BG_baristas.png', [200, 200, 220]);
@@ -507,6 +514,21 @@ try {
 }
 }
 
+function manageBackgroundMusic() {
+  // Start music if it should be playing but isn't
+  if (state !== "intro" && backgroundMusic && !backgroundMusic.isPlaying()) {
+    backgroundMusic.setVolume(musicVolume);
+    backgroundMusic.loop();
+    console.log("Restarting background music");
+  }
+  
+  // Stop music during intro state
+  if (state === "intro" && backgroundMusic && backgroundMusic.isPlaying()) {
+    backgroundMusic.stop();
+    console.log("Stopping background music");
+  }
+}
+
 // Handle complex key press events
 function keyPressed() {
 try {
@@ -516,6 +538,12 @@ try {
     // Clean up video
     if (introVideo) {
       introVideo.stop();
+    }
+
+    if (backgroundMusic && !backgroundMusic.isPlaying()) {
+      backgroundMusic.setVolume(musicVolume);
+      backgroundMusic.loop();
+      console.log("Starting background music");
     }
     
     // Force clean transition
@@ -1521,24 +1549,14 @@ function peteVideoEnded() {
 // Main draw function to render different game states
 function draw() {
   try {
-    if (!window.lastState) window.lastState = state;
-    if (window.lastState !== state) {
-      console.log(`State changed from ${window.lastState} to ${state}`);
-      window.lastState = state;
-      
-      // If transitioning from intro to selection, force a clear
-      if (state === "selection") {
-        clear();
-        background(240);
-        console.log("Forced clear for selection state");
-      }
-    }
+    manageBackgroundMusic();
 
     // Only use default background for states other than pete, meowchi, and mug
     if (state !== "pete" && state !== "meowchi" && state !== "mug" && 
         state !== "pete_end" && state !== "meowchi_end" && state !== "intro") {
       background(220);
     }
+    
     
     switch(state) {
       case "intro":
