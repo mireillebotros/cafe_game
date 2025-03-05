@@ -25,12 +25,6 @@ const CURSOR_BLINK_RATE = 500; // Blink every 500ms
 let pixellariFont; // Variable to store the Pixellari font
 let showEndScreen = false; // Flag to show the end screen
 
-let introVideo;
-let introVideoPlaying = true;
-let introVideoLoaded = false;
-
-
-
 // AUDIO VARIABLES - Add these at the top with other global variables
 let peteDefaultAudio, peteConfusedAudio, peteTiredAudio, peteAngryAudio;
 let meowchiDefaultAudio, meowchiConfusedAudio, meowchiWorriedAudio, meowchiKindAudio;
@@ -110,28 +104,6 @@ function preload() {
   try {
     // Load font
     pixellariFont = loadFont('Pixellari.ttf');
-
-    // Load intro video
-    try {
-      introVideo = createVideo('BG_introVID.mp4');
-      introVideo.hide(); // Hide the video element by default
-      
-      // Preload the video to ensure it's ready to play
-      introVideo.elt.preload = "auto"; // Force preloading
-      introVideo.elt.load(); // Start loading immediately
-      
-      // Add event listener to loop the video
-      introVideo.elt.addEventListener('ended', function() {
-        // When video ends, restart it (looping)
-        introVideo.time(0);
-        introVideo.play();
-      });
-      
-      console.log('BG_introVID.mp4 loading started');
-    } catch (e) {
-      console.error('Failed to load BG_introVID.mp4:', e);
-      introVideo = null;
-    }
     
     // Load barista selection background
     baristaSelectionBackground = loadGameImage('BG_baristas.png', [200, 200, 220]);
@@ -483,19 +455,6 @@ try {
 // Handle complex key press events
 function keyPressed() {
 try {
-  // Check for intro screen transition first
-  if (state === "intro" && keyCode === ENTER) {
-    // Stop the intro video
-    if (introVideo && introVideoPlaying) {
-      introVideo.stop();
-      introVideoPlaying = false;
-    }
-    
-    // Transition to barista selection
-    state = "selection";
-    return false; // Prevent default behavior
-  }
-
   if (!isTypingActive) return true;
 
   // Handle Enter key for form submission when checkmark is visible
@@ -1211,21 +1170,6 @@ function setup() {
     textAlign(CENTER, CENTER);
     textSize(height * 0.02);
     
-    // Set state to "intro" instead of "selection"
-    state = "intro";
-    
-    // Start playing the intro video when setup completes
-    if (introVideo) {
-      introVideo.loop();
-      introVideo.volume(1);
-      introVideoPlaying = true;
-      
-      // Add an event listener to mark when the video is ready to play
-      introVideo.elt.addEventListener('canplay', function() {
-        introVideoLoaded = true;
-      });
-    }
-
     // Use default font as fallback if Pixellari doesn't load properly
     if (!pixellariFont) {
       console.warn("Pixellari font not loaded, using default font instead");
@@ -1279,46 +1223,6 @@ function setup() {
     
   } catch (e) {
     console.error('Error in setup:', e);
-  }
-}
-
-function drawIntroScreen() {
-  // If video is loaded and playing, display it
-  if (introVideo && introVideoLoaded) {
-    // Display the video filling the entire canvas
-    image(introVideo, 0, 0, width, height);
-    
-    // Add "Press ENTER to start" text at the bottom of the screen
-    if (pixellariFont) {
-      textFont(pixellariFont);
-    }
-    
-    // Use a semi-transparent background for better text visibility
-    fill(0, 0, 0, 150); // Semi-transparent black
-    noStroke();
-    rectMode(CENTER);
-    rect(width/2, height * 0.85, width * 0.5, height * 0.1, 10);
-    
-    // Draw text
-    fill(255);
-    textSize(height * 0.04);
-    text("Press ENTER to start", width/2, height * 0.85);
-    
-    // Reset text settings
-    textSize(height * 0.02);
-    textFont('sans-serif');
-    rectMode(CORNER);
-  } else {
-    // Fallback if video is not loaded or available
-    background(30);
-    fill(255);
-    textSize(height * 0.05);
-    text("Coffee Shop", width/2, height * 0.4);
-    
-    textSize(height * 0.04);
-    text("Press ENTER to start", width/2, height * 0.6);
-    
-    textSize(height * 0.02); // Reset text size
   }
 }
 
@@ -1480,14 +1384,11 @@ function draw() {
   try {
     // Only use default background for states other than pete, meowchi, and mug
     if (state !== "pete" && state !== "meowchi" && state !== "mug" && 
-        state !== "pete_end" && state !== "meowchi_end" && state !== "intro") {
+        state !== "pete_end" && state !== "meowchi_end") {
       background(220);
     }
     
     switch(state) {
-      case "intro":
-        drawIntroScreen();
-        break;
       case "selection":
         drawBaristaSelection();
         showBlankImage = false;
@@ -1509,7 +1410,7 @@ function draw() {
         drawMeowchiEnd();
         break;
       default:
-        state = "intro"; // Change default to intro instead of selection
+        state = "selection";
         showBlankImage = false;
         break;
     }
