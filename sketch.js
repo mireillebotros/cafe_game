@@ -25,6 +25,12 @@ const CURSOR_BLINK_RATE = 500; // Blink every 500ms
 let pixellariFont; // Variable to store the Pixellari font
 let showEndScreen = false; // Flag to show the end screen
 
+// AUDIO VARIABLES - Add these at the top with other global variables
+let peteDefaultAudio, peteConfusedAudio, peteTiredAudio, peteAngryAudio;
+let meowchiDefaultAudio, meowchiConfusedAudio, meowchiWorriedAudio, meowchiKindAudio;
+let currentAudio = null;
+let audioPlayed = {};
+
 // Text selection variables
 let selectionMode = 'none'; // 'none', 'word', 'all'
 let selectionStart = -1;
@@ -229,10 +235,929 @@ function preload() {
     
     // Add the Meowchi blank response image (reuse Pete's for now)
     meowchiResponseImages['M_R6.Blank'] = blankInputImage;
+
+    // AUDIO LOADING - Load Pete's and Meowchi's audio files
+    try {
+      // Load Pete's audio files with specified durations:
+      // pete_default.mp3 - 1 second
+      peteDefaultAudio = loadSound('pete_default.mp3', 
+        () => console.log('pete_default.mp3 loaded'), 
+        (err) => console.error('Failed to load pete_default.mp3:', err));
+      
+      // pete_confused.mp3 - 1 second
+      peteConfusedAudio = loadSound('pete_confused.mp3',
+        () => console.log('pete_confused.mp3 loaded'), 
+        (err) => console.error('Failed to load pete_confused.mp3:', err));
+      
+      // pete_tired.mp3 - 2 seconds
+      peteTiredAudio = loadSound('pete_tired.mp3',
+        () => console.log('pete_tired.mp3 loaded'), 
+        (err) => console.error('Failed to load pete_tired.mp3:', err));
+      
+      // pete_angry.mp3 - 1 second
+      peteAngryAudio = loadSound('pete_angry.mp3',
+        () => console.log('pete_angry.mp3 loaded'), 
+        (err) => console.error('Failed to load pete_angry.mp3:', err));
+      
+      // Load Meowchi's audio files with specified durations:
+      // meowchi_default.mp3 - 2 seconds
+      meowchiDefaultAudio = loadSound('meowchi_default.mp3',
+        () => console.log('meowchi_default.mp3 loaded'), 
+        (err) => console.error('Failed to load meowchi_default.mp3:', err));
+      
+      // meowchi_confused.mp3 - 1 second
+      meowchiConfusedAudio = loadSound('meowchi_confused.mp3',
+        () => console.log('meowchi_confused.mp3 loaded'), 
+        (err) => console.error('Failed to load meowchi_confused.mp3:', err));
+      
+      // meowchi_worried.mp3 - 3 seconds
+      meowchiWorriedAudio = loadSound('meowchi_worried.mp3',
+        () => console.log('meowchi_worried.mp3 loaded'), 
+        (err) => console.error('Failed to load meowchi_worried.mp3:', err));
+      
+      // meowchi_kind.mp3 - 1 second
+      meowchiKindAudio = loadSound('meowchi_kind.mp3',
+        () => console.log('meowchi_kind.mp3 loaded'), 
+        (err) => console.error('Failed to load meowchi_kind.mp3:', err));
+    } catch (e) {
+      console.error('Error loading audio files:', e);
+    }
     
   } catch (e) {
-    console.error('Error loading images:', e);
+    console.error('Error loading assets:', e);
   }
+}
+
+// Handle mouse dragging for text selection
+function mouseDragged() {
+try {
+  if (isTypingActive && dragStartPos !== -1) {
+  // Set selection mode to active
+  selectionInProgress = true;
+
+  // Get text dimensions
+  const optionFound = false;
+  let textX = 0;
+  let textY = 0;
+  let optionWidth = 0;
+  let textFontSize = 0;
+
+  // Find the text input option to get its position
+  for (let i = 0; i < responseOptions.length; i++) {
+    if (responseOptions[i].startsWith("*make a type box")) {
+      // We found the text input option, now calculate its position
+      const blankImagePlacement = getImagePlacement();
+      const maxOptionHeight = height * 0.18;
+      const blankRightEdge = blankImagePlacement.x + blankImagePlacement.width;
+      const remainingSpace = width - blankRightEdge;
+      
+      // Calculate option dimensions
+      const originalWidth = responseImages['P_R4.Blank'].width;
+      const originalHeight = responseImages['P_R4.Blank'].height;
+      const imgHeight = Math.min(maxOptionHeight, height * 0.18);
+      const imgWidth = (imgHeight / originalHeight) * originalWidth;
+      
+      // Calculate option position
+      const optionSpacing = height * 0.02;
+      const bottomMargin = optionSpacing;
+      const startX = blankRightEdge + (remainingSpace / 2) - (imgWidth / 2);
+      
+      // Set text position values for calculations
+      textX = startX + imgWidth * 0.15;
+      optionWidth = imgWidth;
+      textFontSize = imgHeight * 0.25;
+      
+      break;
+    }
+  }
+
+  if (textX === 0) return; // If we didn't find the text input option
+  // Calculate cursor position based on mouse position
+  if (pixellariFont) {
+    textFont(pixellariFont);
+  }
+  textSize(textFontSize);
+
+  // Find cursor position at mouse point
+  let newPosition = 0;
+
+  // If mouse is before text area, set to start
+  if (mouseX <= textX) {
+    newPosition = 0;
+  } 
+  // If mouse is past text area, set to end
+  else if (mouseX >= textX + textWidth(userInput)) {
+    newPosition = userInput.length;
+  }
+  // Otherwise, find closest character
+  else {
+    for (let i = 0; i <= userInput.length; i++) {
+      const currText = userInput.substring(0, i);
+      const currWidth = textWidth(currText);
+      
+      if (mouseX < textX + currWidth) {
+        // Choose the closer position
+        newPosition = (mouseX - (textX + textWidth(userInput.substring(0, i-1))) < 
+                     (textX + currWidth) - mouseX) 
+          ? Math.max(0, i - 1) 
+          : i;
+        break;
+      }
+      
+      // If we've reached the end, place cursor at the end
+      if (i === userInput.length) {
+        newPosition = userInput.length;
+      }
+    }
+  }
+
+  // Set cursor to new position
+  cursorPosition = newPosition;
+
+  // Update selection
+  selectionMode = 'drag';
+  selectionStart = Math.min(dragStartPos, newPosition);
+  selectionEnd = Math.max(dragStartPos, newPosition);
+
+  // Reset text settings
+  textSize(height * 0.025);
+  textFont('sans-serif');
+}
+} catch (e) {
+  console.error('Error in mouseDragged:', e);
+}
+}
+
+// Handle mouse release event
+function mouseReleased() {
+try {
+  // If we were selecting text, finalize the selection
+  if (isTypingActive && selectionInProgress) {
+    selectionInProgress = false;
+
+    // If start and end are the same, clear selection
+    if (selectionStart === selectionEnd) {
+      selectionMode = 'none';
+      selectionStart = -1;
+      selectionEnd = -1;
+    }
+  }
+
+  // Reset drag start position
+  dragStartPos = -1;
+} catch (e) {
+  console.error('Error in mouseReleased:', e);
+}
+}
+
+// Handle key typed events for text input
+function keyTyped() {
+try {
+  // Only handle typing when typing is active
+  if (isTypingActive) {
+    // Get the text width of the current input with the Pixellari font
+    if (pixellariFont) {
+      textFont(pixellariFont);
+      textSize(height * 0.25); // Match the increased font size used in drawTextInputOnBlank
+    }
+
+    // If there's a selection, replace it
+    if (selectionMode !== 'none') {
+      // Delete selected text and insert new character
+      userInput = userInput.substring(0, selectionStart) + key + userInput.substring(selectionEnd);
+      cursorPosition = selectionStart + 1; // Move cursor after inserted character
+      
+      // Reset selection
+      selectionMode = 'none';
+      selectionStart = -1;
+      selectionEnd = -1;
+    } else {
+      // Only check character count, not width, to ensure users can type all 10 characters
+      if (userInput.length < maxCharacters) {
+        // Insert character at cursor position
+        userInput = userInput.substring(0, cursorPosition) + key + userInput.substring(cursorPosition);
+        cursorPosition++; // Move cursor after inserted character
+      }
+    }
+
+    // Reset the font to default
+    textFont('sans-serif');
+
+    return false; // Prevent default behavior
+  }
+  return true; // Allow default behavior
+} catch (e) {
+  console.error('Error in keyTyped:', e);
+  return true;
+}
+}
+
+// Handle complex key press events
+function keyPressed() {
+try {
+  if (!isTypingActive) return true;
+
+  // Handle Enter key for form submission when checkmark is visible
+  if (keyCode === ENTER && checkmarkVisible) {
+    yourName = userInput;
+    userInput = "";
+    isTypingActive = false;
+    if (state === "pete") {
+      handlePeteResponse("checkmark");
+    } else if (state === "meowchi") {
+      handleMeowchiResponse("checkmark");
+    }
+    return false;
+  }
+
+  // Handle backspace or delete with selection
+  if (keyCode === BACKSPACE || keyCode === 46) { // BACKSPACE or DELETE
+    if (selectionMode !== 'none') {
+      // Delete selected text
+      userInput = userInput.substring(0, selectionStart) + userInput.substring(selectionEnd);
+      cursorPosition = selectionStart;
+      
+      // Reset selection
+      selectionMode = 'none';
+      selectionStart = -1;
+      selectionEnd = -1;
+      
+      return false;
+    }
+
+    // Existing backspace/delete logic for no selection
+    if (keyCode === BACKSPACE) {
+      if (cursorPosition > 0) {
+        userInput = userInput.substring(0, cursorPosition - 1) + userInput.substring(cursorPosition);
+        cursorPosition--;
+      }
+      return false;
+    }
+
+    if (keyCode === 46) { // DELETE key
+      if (cursorPosition < userInput.length) {
+        userInput = userInput.substring(0, cursorPosition) + userInput.substring(cursorPosition + 1);
+      }
+      return false;
+    }
+  }
+
+  // Handle left arrow (keyCode 37)
+  if (keyCode === 37) { // LEFT_ARROW
+    if (cursorPosition > 0) {
+      cursorPosition--;
+      
+      // If shift is held, modify selection
+      if (keyIsDown(SHIFT)) {
+        if (selectionMode === 'none') {
+          // Start a new selection
+          selectionMode = 'drag';
+          dragStartPos = cursorPosition + 1;
+          selectionStart = cursorPosition;
+          selectionEnd = dragStartPos;
+        } else {
+          // Update existing selection
+          if (cursorPosition < dragStartPos) {
+            selectionStart = cursorPosition;
+            selectionEnd = dragStartPos;
+          } else {
+            selectionStart = dragStartPos;
+            selectionEnd = cursorPosition;
+          }
+        }
+      } else {
+        // Reset selection on arrow key press without shift
+        selectionMode = 'none';
+        selectionStart = -1;
+        selectionEnd = -1;
+      }
+    }
+    return false;
+  }
+
+  // Handle right arrow (keyCode 39)
+  if (keyCode === 39) { // RIGHT_ARROW
+    if (cursorPosition < userInput.length) {
+      cursorPosition++;
+      
+      // If shift is held, modify selection
+      if (keyIsDown(SHIFT)) {
+        if (selectionMode === 'none') {
+          // Start a new selection
+          selectionMode = 'drag';
+          dragStartPos = cursorPosition - 1;
+          selectionStart = dragStartPos;
+          selectionEnd = cursorPosition;
+        } else {
+          // Update existing selection
+          if (cursorPosition > dragStartPos) {
+            selectionStart = dragStartPos;
+            selectionEnd = cursorPosition;
+          } else {
+            selectionStart = cursorPosition;
+            selectionEnd = dragStartPos;
+          }
+        }
+      } else {
+        // Reset selection on arrow key press without shift
+        selectionMode = 'none';
+        selectionStart = -1;
+        selectionEnd = -1;
+      }
+    }
+    return false;
+  }
+
+  // Handle Ctrl+A to select all (keyCode 65 is 'A')
+  if (keyCode === 65 && keyIsDown(CONTROL)) {
+    selectionMode = 'all';
+    selectionStart = 0;
+    selectionEnd = userInput.length;
+    cursorPosition = userInput.length;
+    return false;
+  }
+
+  // Handle home key (keyCode 36)
+  if (keyCode === 36) { // HOME
+    cursorPosition = 0;
+
+    // If shift is held, modify selection
+    if (keyIsDown(SHIFT)) {
+      if (selectionMode === 'none') {
+        selectionMode = 'drag';
+        dragStartPos = userInput.length;
+      }
+      selectionStart = 0;
+      selectionEnd = dragStartPos;
+    } else {
+      // Reset selection
+      selectionMode = 'none';
+      selectionStart = -1;
+      selectionEnd = -1;
+    }
+    return false;
+  }
+
+  // Handle end key (keyCode 35)
+  if (keyCode === 35) { // END
+    cursorPosition = userInput.length;
+
+    // If shift is held, modify selection
+    if (keyIsDown(SHIFT)) {
+      if (selectionMode === 'none') {
+        selectionMode = 'drag';
+        dragStartPos = 0;
+      }
+      selectionStart = dragStartPos;
+      selectionEnd = userInput.length;
+    } else {
+      // Reset selection
+      selectionMode = 'none';
+      selectionStart = -1;
+      selectionEnd = -1;
+    }
+    return false;
+  }
+
+  return true; // Allow default behavior for other keys
+} catch (e) {
+  console.error('Error in keyPressed:', e);
+  return true;
+}
+}
+
+// Start Pete's dialogue sequence
+function startPeteDialogue() {
+  console.log("Starting Pete dialogue sequence");
+  showBlankImage = true;
+  isTypingActive = false;
+  userInput = "";
+  cursorPosition = 0;
+  cursorVisible = true;
+  lastCursorBlink = millis();
+  peteRepeatCount = 0; // Reset the repeat count when starting dialogue
+  
+  // Reset Pete's video state
+  peteVideoPlaying = false;
+  peteVideoFinished = false;
+
+  // Reset selection
+  selectionMode = 'none';
+  selectionStart = -1;
+  selectionEnd = -1;
+
+  // AUDIO ADDITION - Reset audio state
+  resetAudioForNewDialogue();
+  audioPlayed = {};
+
+  // Start with Q1 after a short delay
+  setTimeout(() => {
+    currentQuestion = "Can I take your order please?";
+    responseOptions = ["P_R1.1"];
+    showOptions = false;
+    timerStarted = false;
+    repeatCount = 0;
+  }, 200);
+}
+
+// Handle Pete's dialogue responses
+function handlePeteResponse(response) {
+  showOptions = false;
+  timerStarted = false;
+  
+  const previousQuestion = currentQuestion;
+
+  // Dialogue flow handling using a state machine approach
+  const dialogueMap = {
+    "Can I take your order please?": {
+      // First interaction with only one option
+      oneOption: () => {
+        peteOrderTime += 0.2;
+        peteRepeatCount++; // Increment expression change counter
+        currentQuestion = "Can I take your order please?";
+        responseOptions = ["P_R1.1", "R_YES", "R_NO"];
+      },
+      // After showing multiple options
+      "1": () => {
+        repeatCount++;
+        peteRepeatCount++; // Increment expression change counter
+        
+        if (repeatCount >= 2) {
+          currentQuestion = "Okay then…NEXT CUSTOMER!";
+          responseOptions = [];
+          peteOrderTime = ORIGINAL_PETE_ORDER_TIME;
+          repeatCount = 0;
+          peteRepeatCount = 0; // Reset expression change counter
+        } else {
+          peteOrderTime += 0.2;
+          currentQuestion = "Can I take your order please?";
+        }
+      },
+      "2": () => {
+        repeatCount = 0;
+        peteRepeatCount = 0; // Reset expression change counter
+        currentQuestion = "What can I get you?";
+        responseOptions = ["P_R3.1", "P_R3.2", "P_R3.3"];
+      },
+      "3": () => {
+        repeatCount = 0;
+        peteRepeatCount = 0; // Reset expression change counter
+        currentQuestion = "Okay then…NEXT CUSTOMER!";
+        responseOptions = [];
+        peteOrderTime = ORIGINAL_PETE_ORDER_TIME;
+      }
+    },
+    "What can I get you?": {
+      "1": () => {
+        // Set up for video playback
+        currentQuestion = "Ya! What ……..?";
+        responseOptions = [
+          "*make a type box",
+          "P_R4.2"
+        ];
+        
+        // Reset video state variables
+        peteVideoPlaying = false;
+        peteVideoFinished = false;
+        window.peteVideoStartTime = null;
+        window.peteBlankShown = false;
+        window.peteResponseOptionsTimeoutSet = false;
+        
+        // Hide options until video finishes
+        showOptions = false;
+        
+        // Pre-buffer the video if available
+        if (peteQ4Video) {
+          peteQ4Video.elt.load(); // Force reload
+          peteQ4Video.elt.currentTime = 0; // Reset to beginning
+        }
+      },
+      "2": () => {
+        // Same setup for all drink options
+        currentQuestion = "Ya! What ……..?";
+        responseOptions = [
+          "*make a type box",
+          "P_R4.2"
+        ];
+        
+        // Reset video state variables
+        peteVideoPlaying = false;
+        peteVideoFinished = false;
+        window.peteVideoStartTime = null;
+        window.peteBlankShown = false;
+        window.peteResponseOptionsTimeoutSet = false;
+        
+        // Hide options until video finishes
+        showOptions = false;
+        
+        // Pre-buffer the video if available
+        if (peteQ4Video) {
+          peteQ4Video.elt.load(); // Force reload
+          peteQ4Video.elt.currentTime = 0; // Reset to beginning
+        }
+      },
+      "3": () => {
+        // Same setup for all drink options
+        currentQuestion = "Ya! What ……..?";
+        responseOptions = [
+          "*make a type box",
+          "P_R4.2"
+        ];
+        
+        // Reset video state variables
+        peteVideoPlaying = false;
+        peteVideoFinished = false;
+        window.peteVideoStartTime = null;
+        window.peteBlankShown = false;
+        window.peteResponseOptionsTimeoutSet = false;
+        
+        // Hide options until video finishes
+        showOptions = false;
+        
+        // Pre-buffer the video if available
+        if (peteQ4Video) {
+          peteQ4Video.elt.load(); // Force reload
+          peteQ4Video.elt.currentTime = 0; // Reset to beginning
+        }
+      },
+      default: () => {
+        // For any other response, use same setup
+        currentQuestion = "Ya! What ……..?";
+        responseOptions = [
+          "*make a type box",
+          "P_R4.2"
+        ];
+        
+        // Reset video state variables
+        peteVideoPlaying = false;
+        peteVideoFinished = false;
+        window.peteVideoStartTime = null;
+        window.peteBlankShown = false;
+        window.peteResponseOptionsTimeoutSet = false;
+        
+        // Hide options until video finishes
+        showOptions = false;
+      }
+    },
+    "Ya! What ……..?": {
+      "checkmark": () => {
+        // Save name and show confirmation (Q5.1)
+        currentQuestion = `${yourName} ok then`;
+        responseOptions = [];
+        
+        // After a short delay, transition to final drink delivery (Q6)
+        setTimeout(() => {
+          currentQuestion = `${yourName} here's your drink.`;
+        }, 1500);
+      },
+      "repeat": () => {
+        // If "I didn't catch that" is selected, show angry Pete (Q5.2)
+        currentQuestion = "YOUR NAME?!!!";
+        responseOptions = [
+          "*make a type box"
+        ];
+        showBlankImage = true;
+      },
+      "textbox": () => {
+        // This is now handled in mousePressed
+        console.log("Activating text input");
+        isTypingActive = true;
+      }
+    },
+    "YOUR NAME?!!!": {
+      "checkmark": () => {
+        // After entering name in the angry Pete screen, go directly to final screen
+        currentQuestion = `${yourName} here's your drink.`;
+        responseOptions = [];
+      },
+      "textbox": () => {
+        // This is now handled in mousePressed
+        console.log("Activating text input");
+        isTypingActive = true;
+      }
+    }
+  };
+
+  // Execute the appropriate dialogue flow
+  if (dialogueMap[currentQuestion]) {
+    if (responseOptions.length === 1 && dialogueMap[currentQuestion].oneOption) {
+      dialogueMap[currentQuestion].oneOption();
+    } else if (dialogueMap[currentQuestion][response]) {
+      dialogueMap[currentQuestion][response]();
+    } else if (dialogueMap[currentQuestion].default) {
+      dialogueMap[currentQuestion].default();
+    }
+  }
+  
+  // AUDIO ADDITION - Reset audio if dialogue changed
+  if (previousQuestion !== currentQuestion) {
+    resetAudioForNewDialogue();
+  }
+}
+
+// Handle Meowchi's dialogue responses - UPDATED FOR NEW SEQUENCE
+function handleMeowchiResponse(response) {
+  showOptions = false;
+  timerStarted = true; // Keep timer active for Meowchi's responses
+  
+  const previousQuestion = currentQuestion;
+
+  // Dialogue flow handling using a state machine approach
+  const dialogueMap = {
+    "[speaks in Meowish]": {
+      "Display Captions": () => {
+        currentQuestion = "meow meow me-meow meow?";
+        responseOptions = ["Huh", "Meow", "Subtitle Translation"];
+      }
+    },
+    
+    "meow meow me-meow meow?": {
+      "Huh": () => {
+        // Path 1: Q3.1 - Show confused face for 1 second, then continue with concerned face
+        meowishSequenceActive = true;
+        displayTimer = millis(); // Reset timer for the confused face transition
+        
+        // Change the image after 1 second
+        setTimeout(() => {
+          // Replace the current question with the concerned face version
+          currentQuestion = "concerned_meow"; // Using a special key for the concerned face state
+          
+          // Set responses to show after the confused face
+          responseOptions = ["Subtitle Translation", "re-chose barista"];
+          showOptions = true;
+        }, 1000);
+      },
+      "Meow": () => {
+        // Same behavior as "Huh" - follows Path 1
+        meowishSequenceActive = true;
+        displayTimer = millis(); // Reset timer for the confused face transition
+        
+        // Change the image after 1 second
+        setTimeout(() => {
+          // Replace the current question with the concerned face version
+          currentQuestion = "concerned_meow"; // Using a special key for the concerned face state
+          
+          // Set responses to show after the confused face
+          responseOptions = ["Subtitle Translation", "re-chose barista"];
+          showOptions = true;
+        }, 1000);
+      },
+      "Subtitle Translation": () => {
+        // Path 2: Q3.2 - Keep displaying the same question, but offer language options
+        // We keep the current question but change the response options
+        responseOptions = ["French", "English"];
+      }
+    },
+    
+    "concerned_meow": {
+      // Path 1 continues: R3.1 options
+      "Subtitle Translation": () => {
+        // Q4.1: User selected Subtitle Translation from concerned face state (Path 1)
+        currentQuestion = "concerned_french"; // Using a special key for the French with concerned face
+        responseOptions = ["For here", "A drink"];
+      },
+      "re-chose barista": () => {
+        state = "selection";
+      }
+    },
+    
+    "French": () => {
+      // Path 2 continues: Q4.2 - From normal face after selecting Subtitle Translation -> French
+      currentQuestion = "normal_french"; // Using a special key for the regular French face
+      responseOptions = ["For here", "A drink"];
+    },
+    
+    "English": () => {
+      // English is not available, do nothing (keep current options)
+      showOptions = true;
+    },
+    
+    // Both paths converge at R4 but with different question images displayed
+    // Both paths now branch again after R4
+    "concerned_french": {
+      "1": () => { // For here - Path 1.A
+        currentQuestion = "D'accord.. Vous etes pret?"; // Q5.1
+        responseOptions = ["Yes", "No"];
+      },
+      "2": () => { // A drink - Path 1.B
+        // Skip Q5.1 and R5, go directly to Q6.2
+        currentQuestion = "Quelle boisson veux-tu?"; // Q6.2
+        responseOptions = ["Whisker Matcha", "PURspresso", "Catnip Tea"];
+      }
+    },
+    
+    "normal_french": {
+      "1": () => { // For here - Path 2.A
+        currentQuestion = "D'accord.. Vous etes pret?"; // Q5.1
+        responseOptions = ["Yes", "No"];
+      },
+      "2": () => { // A drink - Path 2.B
+        // Skip Q5.1 and R5, go directly to Q6.2
+        currentQuestion = "Quelle boisson veux-tu?"; // Q6.2
+        responseOptions = ["Whisker Matcha", "PURspresso", "Catnip Tea"];
+      }
+    },
+    
+    "D'accord.. Vous etes pret?": { // Q5.1 with R5 options
+      "yes": () => { // If Yes (option 1) selected in R5, go to Q6.2
+        currentQuestion = "Quelle boisson veux-tu?";
+        responseOptions = ["Whisker Matcha", "PURspresso", "Catnip Tea"];
+      },
+      "no": () => { // If No (option 2) selected in R5, go to Q6.1
+        currentQuestion = "Oh d'accord alors…"; // This is Q6.1
+        responseOptions = [];
+        
+        // Create a special flag to track the "Oh d'accord alors…" display time
+        meowchiExitDelay = true;
+        displayTimer = millis(); // Reset the timer for this specific message
+        
+        // After 3 seconds, return to barista selection (handled in draw function)
+      }
+    },
+    
+    "Quelle boisson veux-tu?": {
+      "1": () => { // Whisker Matcha
+        // Play the blender video (Q7) - Handled in draw function
+        currentQuestion = "Compris. Puis-je avoir ton n-BLENDERRRR";
+        responseOptions = [
+          "*make a type box",
+          "WHAT DID YOU SAY?"
+        ];
+        
+        // Reset video state for playback
+        meowchiVideoPlaying = false;
+        meowchiVideoFinished = false;
+        window.videoStartTime = null; // Reset timestamp for video
+        window.blankShown = false; // Reset blank shown flag
+        window.responseOptionsTimeoutSet = false; // Reset response timeout flag
+        
+        // Make sure options are hidden until video finishes
+        showOptions = false;
+        displayTimer = millis(); // Reset timer
+        
+        // Pre-buffer the video if available to ensure immediate playback
+        if (meowchiQ6Video) {
+          meowchiQ6Video.elt.load(); // Force reload
+          meowchiQ6Video.elt.currentTime = 0; // Reset to beginning
+        }
+      },
+      "2": () => { // PURspresso
+        // Play the blender video (Q7) - Same as path 1
+        currentQuestion = "Compris. Puis-je avoir ton n-BLENDERRRR";
+        responseOptions = [
+          "*make a type box",
+          "WHAT DID YOU SAY?"
+        ];
+        
+        // Reset video state for playback
+        meowchiVideoPlaying = false;
+        meowchiVideoFinished = false;
+        window.videoStartTime = null; // Reset timestamp for video
+        window.blankShown = false; // Reset blank shown flag
+        window.responseOptionsTimeoutSet = false; // Reset response timeout flag
+        
+        // Make sure options are hidden until video finishes
+        showOptions = false;
+        displayTimer = millis(); // Reset timer
+        
+        // Pre-buffer the video if available to ensure immediate playback
+        if (meowchiQ6Video) {
+          meowchiQ6Video.elt.load(); // Force reload
+          meowchiQ6Video.elt.currentTime = 0; // Reset to beginning
+        }
+      },
+      "3": () => { // Catnip Tea
+        // Play the blender video (Q7) - Same as path 1
+        currentQuestion = "Compris. Puis-je avoir ton n-BLENDERRRR";
+        responseOptions = [
+          "*make a type box",
+          "WHAT DID YOU SAY?"
+        ];
+        
+        // Reset video state for playback
+        meowchiVideoPlaying = false;
+        meowchiVideoFinished = false;
+        window.videoStartTime = null; // Reset timestamp for video
+        window.blankShown = false; // Reset blank shown flag
+        window.responseOptionsTimeoutSet = false; // Reset response timeout flag
+        
+        // Make sure options are hidden until video finishes
+        showOptions = false;
+        displayTimer = millis(); // Reset timer
+        
+        // Pre-buffer the video if available to ensure immediate playback
+        if (meowchiQ6Video) {
+          meowchiQ6Video.elt.load(); // Force reload
+          meowchiQ6Video.elt.currentTime = 0; // Reset to beginning
+        }
+      }
+    },
+    
+    "Compris. Puis-je avoir ton n-BLENDERRRR": {
+      "textbox": () => {
+        // This is handled in mousePressed
+        console.log("Activating text input");
+        isTypingActive = true;
+      },
+      "what": () => {
+        // Path 2: User selects "WHAT DID YOU SAY?" (option 2 in R7)
+        currentQuestion = "… votre nom?"; // Q8.2
+        responseOptions = [
+          "*make a type box"
+        ];
+      },
+      "checkmark": () => {
+        // Path 1: User entered name directly after blender sound (option 1 in R7)
+        // Save name and show confirmation (Q8.1)
+        currentQuestion = "MEOWCHI_Q7_1"; // "Name"? Hmmm
+        responseOptions = [];
+        
+        // After a short delay, transition to final drink message (Q9.2)
+        setTimeout(() => {
+          currentQuestion = "MEOWCHI_Q8"; // Final drink message
+          
+          // After 4 seconds, transition to the meowchi_end screen
+          setTimeout(() => {
+            state = "meowchi_end";
+            currentQuestion = "";
+            responseOptions = [];
+          }, 4000);
+        }, 2000);
+      }
+    },
+    
+    "… votre nom?": {
+      "textbox": () => {
+        // This is handled in mousePressed
+        console.log("Activating text input");
+        isTypingActive = true;
+      },
+      "checkmark": () => {
+        // Path 2 continues: User entered name after "... votre nom?" (R8)
+        // Save name and show confirmation (Q9.1)
+        currentQuestion = "MEOWCHI_Q7_3"; // "*name*, d'accord."
+        responseOptions = [];
+        
+        // After a short delay, transition to final drink delivery (Q9.2)
+        setTimeout(() => {
+          currentQuestion = "MEOWCHI_Q8"; // Final drink message
+          
+          // After 4 seconds, return to mug
+          setTimeout(() => {
+            state = "meowchi_end";
+            currentQuestion = "";
+            responseOptions = [];
+          }, 4000);
+        }, 2000);
+      }
+    }
+  };
+  
+  // Execute the appropriate dialogue flow
+  if (dialogueMap[currentQuestion] && dialogueMap[currentQuestion][response]) {
+    dialogueMap[currentQuestion][response]();
+  } else if (typeof dialogueMap[response] === 'function') {
+    dialogueMap[response]();
+  }
+  
+  // AUDIO ADDITION - Reset audio if dialogue changed
+  if (previousQuestion !== currentQuestion) {
+    resetAudioForNewDialogue();
+  }
+}
+
+// Start Meowchi's dialogue sequence - UPDATED FOR NEW SEQUENCE
+function startMeowchiDialogue() {
+  console.log("Starting Meowchi dialogue sequence");
+  showBlankImage = true;
+  isTypingActive = false;
+  userInput = "";
+  cursorPosition = 0;
+  cursorVisible = true;
+  lastCursorBlink = millis();
+  meowishSequenceActive = false;
+  
+  // Reset video state
+  meowchiVideoPlaying = false;
+  meowchiVideoFinished = false;
+
+  // Reset selection
+  selectionMode = 'none';
+  selectionStart = -1;
+  selectionEnd = -1;
+
+  // AUDIO ADDITION - Reset audio state
+  resetAudioForNewDialogue();
+  audioPlayed = {};
+
+  // Start with Q1 (new sequence) after a short delay
+  setTimeout(() => {
+    currentQuestion = "[speaks in Meowish]";
+    responseOptions = ["Display Captions"];
+    showOptions = false;
+    timerStarted = false;
+    displayTimer = 0; // Reset display timer to ensure proper timing
+  }, 200);
 }
 
 // Setup function to initialize the canvas and game settings
@@ -286,8 +1211,135 @@ function setup() {
     window.peteBlankShown = false;
     window.peteResponseOptionsTimeoutSet = false;
     
+    // AUDIO SETUP - Initialize audio playback
+    audioPlayed = {};
+    
+    // Configure audio to enable on user interaction
+    if (typeof getAudioContext === 'function') {
+      document.addEventListener('click', function() {
+        getAudioContext().resume();
+      });
+    }
+    
   } catch (e) {
     console.error('Error in setup:', e);
+  }
+}
+
+// AUDIO FUNCTION - Function to play audio based on the current dialogue state
+function playAudioForState(state, question) {
+  try {
+    // Don't play audio for video states (they have their own audio)
+    if (question === "Ya! What ……..?" || question === "Compris. Puis-je avoir ton n-BLENDERRRR") {
+      return;
+    }
+    
+    // Generate a unique key for this dialogue state
+    const dialogueKey = `${state}_${question}`;
+    
+    // Skip if we've already played audio for this state
+    if (audioPlayed[dialogueKey]) {
+      return;
+    }
+    
+    // Stop any currently playing audio
+    if (currentAudio && currentAudio.isPlaying()) {
+      currentAudio.stop();
+    }
+    
+    let audioToPlay = null;
+    
+    // Determine which audio to play based on Pete's dialogue states
+    if (state === "pete") {
+    if (question === "Can I take your order please?") {
+      // Different audio based on repeat count
+      if (peteRepeatCount === 0) {
+        audioToPlay = peteDefaultAudio; // Q1: Normal face
+      } else if (peteRepeatCount === 1) {
+        audioToPlay = peteConfusedAudio; // Q2: Confused face
+      } else {
+        audioToPlay = peteTiredAudio; // Q3.1: Tired face
+      }
+    } 
+    else if (question === "Okay then…NEXT CUSTOMER!") {
+      audioToPlay = peteAngryAudio; // Q3.R2
+    }
+    else if (question === "What can I get you?") {
+      audioToPlay = peteDefaultAudio; // Q3.2
+    }
+    else if (question.includes("ok then") && !question.includes("here's your drink")) {
+      audioToPlay = peteConfusedAudio; // Q5.1
+    }
+    else if (question === "YOUR NAME?!!!") {
+      audioToPlay = peteAngryAudio; // Q5.2
+    }
+    else if (question.includes("here's your drink")) {
+      audioToPlay = peteTiredAudio; // Q6
+    }
+  }
+  // Determine which audio to play based on Meowchi's dialogue states
+  else if (state === "meowchi") {
+    if (question === "[speaks in Meowish]") {
+      audioToPlay = meowchiDefaultAudio; // Q1
+    }
+    else if (question === "meow meow me-meow meow?" && !meowishSequenceActive) {
+      audioToPlay = meowchiDefaultAudio; // Q2: Normal face
+    }
+    else if (question === "concerned_meow" || 
+            (question === "meow meow me-meow meow?" && meowishSequenceActive)) {
+      audioToPlay = meowchiConfusedAudio; // Q3.1: Concerned face
+    }
+    else if (question === "concerned_french") {
+      audioToPlay = meowchiWorriedAudio; // Q4.1: With concerned face
+    }
+    else if (question === "normal_french") {
+      audioToPlay = meowchiDefaultAudio; // Q4.2: With normal face
+    }
+    else if (question === "D'accord.. Vous etes pret?") {
+      audioToPlay = meowchiWorriedAudio; // Q5
+    }
+    else if (question === "Oh d'accord alors…") {
+      audioToPlay = meowchiWorriedAudio; // Q6.1
+    }
+    else if (question === "Quelle boisson veux-tu?") {
+      audioToPlay = meowchiDefaultAudio; // Q6.2
+    }
+    else if (question === "MEOWCHI_Q7_1") { // "[Name]?" hmmm
+      audioToPlay = meowchiConfusedAudio; // Q8.1
+    }
+    else if (question === "… votre nom?") {
+      audioToPlay = meowchiWorriedAudio; // Q8.2
+    }
+    else if (question === "MEOWCHI_Q7_3") { // "[Name], d'accord"
+      audioToPlay = meowchiWorriedAudio; // Q9.1
+    }
+    else if (question === "MEOWCHI_Q8") { // Final drink message
+      audioToPlay = meowchiKindAudio; // Q9.2
+    }
+  }
+  
+  // Play the selected audio
+  if (audioToPlay) {
+    currentAudio = audioToPlay;
+    audioToPlay.play();
+    audioPlayed[dialogueKey] = true;
+    console.log(`Playing audio for: ${state} - ${question}`);
+  }
+  } catch (e) {
+    console.error('Error playing audio:', e);
+  }
+}
+
+// AUDIO FUNCTION - Reset audio state when dialogue changes
+function resetAudioForNewDialogue() {
+  try {
+    // Stop any currently playing audio
+    if (currentAudio && currentAudio.isPlaying()) {
+      currentAudio.stop();
+      currentAudio = null;
+    }
+  } catch (e) {
+    console.error('Error resetting audio:', e);
   }
 }
 
@@ -489,6 +1541,9 @@ function drawPeteDialogue() {
     if (!timerStarted) {
       displayTimer = millis();
       timerStarted = true;
+      
+      // AUDIO ADDITION - Play audio when first showing the question
+      playAudioForState("pete", currentQuestion);
     }
 
     // Handle special case for Pete's video playback
@@ -975,6 +2030,9 @@ function drawMeowchiDialogue() {
     if (!timerStarted) {
       displayTimer = millis();
       timerStarted = true;
+      
+      // AUDIO ADDITION - Play audio when first showing the question
+      playAudioForState("meowchi", currentQuestion);
     }
     
     // Map questions to images and draw appropriately
@@ -1468,7 +2526,7 @@ function drawTextInputOnBlank(x, y, width, height) {
 
 // Handle mouse press events
 function mousePressed() {
-try {
+  try {
   // Handle barista selection
   if (state === "selection") {
     if (baristaPeteImage && baristaMeowchiImage) {
@@ -2086,846 +3144,8 @@ try {
       }
     }
   }
-
-  // If we get here, user clicked somewhere else
   isTypingActive = false;
-} catch (e) {
-  console.error('Error in mousePressed:', e);
-}
-}
-
-// Handle mouse dragging for text selection
-function mouseDragged() {
-if (isTypingActive && dragStartPos !== -1) {
-  // Set selection mode to active
-  selectionInProgress = true;
-
-  // Get text dimensions
-  const optionFound = false;
-  let textX = 0;
-  let textY = 0;
-  let optionWidth = 0;
-  let textFontSize = 0;
-
-  // Find the text input option to get its position
-  for (let i = 0; i < responseOptions.length; i++) {
-    if (responseOptions[i].startsWith("*make a type box")) {
-      // We found the text input option, now calculate its position
-      const blankImagePlacement = getImagePlacement();
-      const maxOptionHeight = height * 0.18;
-      const blankRightEdge = blankImagePlacement.x + blankImagePlacement.width;
-      const remainingSpace = width - blankRightEdge;
-      
-      // Calculate option dimensions
-      const originalWidth = responseImages['P_R4.Blank'].width;
-      const originalHeight = responseImages['P_R4.Blank'].height;
-      const imgHeight = Math.min(maxOptionHeight, height * 0.18);
-      const imgWidth = (imgHeight / originalHeight) * originalWidth;
-      
-      // Calculate option position
-      const optionSpacing = height * 0.02;
-      const bottomMargin = optionSpacing;
-      const startX = blankRightEdge + (remainingSpace / 2) - (imgWidth / 2);
-      
-      // Set text position values for calculations
-      textX = startX + imgWidth * 0.15;
-      optionWidth = imgWidth;
-      textFontSize = imgHeight * 0.25;
-      
-      break;
-    }
-  }
-
-  if (textX === 0) return; // If we didn't find the text input option
-  // Calculate cursor position based on mouse position
-  if (pixellariFont) {
-    textFont(pixellariFont);
-  }
-  textSize(textFontSize);
-
-  // Find cursor position at mouse point
-  let newPosition = 0;
-
-  // If mouse is before text area, set to start
-  if (mouseX <= textX) {
-    newPosition = 0;
-  } 
-  // If mouse is past text area, set to end
-  else if (mouseX >= textX + textWidth(userInput)) {
-    newPosition = userInput.length;
-  }
-  // Otherwise, find closest character
-  else {
-    for (let i = 0; i <= userInput.length; i++) {
-      const currText = userInput.substring(0, i);
-      const currWidth = textWidth(currText);
-      
-      if (mouseX < textX + currWidth) {
-        // Choose the closer position
-        newPosition = (mouseX - (textX + textWidth(userInput.substring(0, i-1))) < 
-                     (textX + currWidth) - mouseX) 
-          ? Math.max(0, i - 1) 
-          : i;
-        break;
-      }
-      
-      // If we've reached the end, place cursor at the end
-      if (i === userInput.length) {
-        newPosition = userInput.length;
-      }
-    }
-  }
-
-  // Set cursor to new position
-  cursorPosition = newPosition;
-
-  // Update selection
-  selectionMode = 'drag';
-  selectionStart = Math.min(dragStartPos, newPosition);
-  selectionEnd = Math.max(dragStartPos, newPosition);
-
-  // Reset text settings
-  textSize(height * 0.025);
-  textFont('sans-serif');
-}
-}
-
-// Handle mouse release event
-function mouseReleased() {
-  // If we were selecting text, finalize the selection
-  if (isTypingActive && selectionInProgress) {
-    selectionInProgress = false;
-
-    // If start and end are the same, clear selection
-    if (selectionStart === selectionEnd) {
-      selectionMode = 'none';
-      selectionStart = -1;
-      selectionEnd = -1;
-    }
-  }
-
-  // Reset drag start position
-  dragStartPos = -1;
-}
-
-// Handle key typed events for text input
-function keyTyped() {
-  // Only handle typing when typing is active
-  if (isTypingActive) {
-    // Get the text width of the current input with the Pixellari font
-    if (pixellariFont) {
-      textFont(pixellariFont);
-      textSize(height * 0.25); // Match the increased font size used in drawTextInputOnBlank
-    }
-
-    // If there's a selection, replace it
-    if (selectionMode !== 'none') {
-      // Delete selected text and insert new character
-      userInput = userInput.substring(0, selectionStart) + key + userInput.substring(selectionEnd);
-      cursorPosition = selectionStart + 1; // Move cursor after inserted character
-      
-      // Reset selection
-      selectionMode = 'none';
-      selectionStart = -1;
-      selectionEnd = -1;
-    } else {
-      // Only check character count, not width, to ensure users can type all 10 characters
-      if (userInput.length < maxCharacters) {
-        // Insert character at cursor position
-        userInput = userInput.substring(0, cursorPosition) + key + userInput.substring(cursorPosition);
-        cursorPosition++; // Move cursor after inserted character
-      }
-    }
-
-    // Reset the font to default
-    textFont('sans-serif');
-
-    return false; // Prevent default behavior
-  }
-  return true; // Allow default behavior
-}
-
-// Handle complex key press events
-function keyPressed() {
-  if (!isTypingActive) return true;
-
-  // Handle Enter key for form submission when checkmark is visible
-  if (keyCode === ENTER && checkmarkVisible) {
-    yourName = userInput;
-    userInput = "";
-    isTypingActive = false;
-    if (state === "pete") {
-      handlePeteResponse("checkmark");
-    } else if (state === "meowchi") {
-      handleMeowchiResponse("checkmark");
-    }
-    return false;
-  }
-
-  // Handle backspace or delete with selection
-  if (keyCode === BACKSPACE || keyCode === 46) { // BACKSPACE or DELETE
-    if (selectionMode !== 'none') {
-      // Delete selected text
-      userInput = userInput.substring(0, selectionStart) + userInput.substring(selectionEnd);
-      cursorPosition = selectionStart;
-      
-      // Reset selection
-      selectionMode = 'none';
-      selectionStart = -1;
-      selectionEnd = -1;
-      
-      return false;
-    }
-
-    // Existing backspace/delete logic for no selection
-    if (keyCode === BACKSPACE) {
-      if (cursorPosition > 0) {
-        userInput = userInput.substring(0, cursorPosition - 1) + userInput.substring(cursorPosition);
-        cursorPosition--;
-      }
-      return false;
-    }
-
-    if (keyCode === 46) { // DELETE key
-      if (cursorPosition < userInput.length) {
-        userInput = userInput.substring(0, cursorPosition) + userInput.substring(cursorPosition + 1);
-      }
-      return false;
-    }
-  }
-
-  // Handle left arrow (keyCode 37)
-  if (keyCode === 37) { // LEFT_ARROW
-    if (cursorPosition > 0) {
-      cursorPosition--;
-      
-      // If shift is held, modify selection
-      if (keyIsDown(SHIFT)) {
-        if (selectionMode === 'none') {
-          // Start a new selection
-          selectionMode = 'drag';
-          dragStartPos = cursorPosition + 1;
-          selectionStart = cursorPosition;
-          selectionEnd = dragStartPos;
-        } else {
-          // Update existing selection
-          if (cursorPosition < dragStartPos) {
-            selectionStart = cursorPosition;
-            selectionEnd = dragStartPos;
-          } else {
-            selectionStart = dragStartPos;
-            selectionEnd = cursorPosition;
-          }
-        }
-      } else {
-        // Reset selection on arrow key press without shift
-        selectionMode = 'none';
-        selectionStart = -1;
-        selectionEnd = -1;
-      }
-    }
-    return false;
-  }
-
-  // Handle right arrow (keyCode 39)
-  if (keyCode === 39) { // RIGHT_ARROW
-    if (cursorPosition < userInput.length) {
-      cursorPosition++;
-      
-      // If shift is held, modify selection
-      if (keyIsDown(SHIFT)) {
-        if (selectionMode === 'none') {
-          // Start a new selection
-          selectionMode = 'drag';
-          dragStartPos = cursorPosition - 1;
-          selectionStart = dragStartPos;
-          selectionEnd = cursorPosition;
-        } else {
-          // Update existing selection
-          if (cursorPosition > dragStartPos) {
-            selectionStart = dragStartPos;
-            selectionEnd = cursorPosition;
-          } else {
-            selectionStart = cursorPosition;
-            selectionEnd = dragStartPos;
-          }
-        }
-      } else {
-        // Reset selection on arrow key press without shift
-        selectionMode = 'none';
-        selectionStart = -1;
-        selectionEnd = -1;
-      }
-    }
-    return false;
-  }
-
-  // Handle Ctrl+A to select all (keyCode 65 is 'A')
-  if (keyCode === 65 && keyIsDown(CONTROL)) {
-    selectionMode = 'all';
-    selectionStart = 0;
-    selectionEnd = userInput.length;
-    cursorPosition = userInput.length;
-    return false;
-  }
-
-  // Handle home key (keyCode 36)
-  if (keyCode === 36) { // HOME
-    cursorPosition = 0;
-
-    // If shift is held, modify selection
-    if (keyIsDown(SHIFT)) {
-      if (selectionMode === 'none') {
-        selectionMode = 'drag';
-        dragStartPos = userInput.length;
-      }
-      selectionStart = 0;
-      selectionEnd = dragStartPos;
-    } else {
-      // Reset selection
-      selectionMode = 'none';
-      selectionStart = -1;
-      selectionEnd = -1;
-    }
-    return false;
-  }
-
-  // Handle end key (keyCode 35)
-  if (keyCode === 35) { // END
-    cursorPosition = userInput.length;
-
-    // If shift is held, modify selection
-    if (keyIsDown(SHIFT)) {
-      if (selectionMode === 'none') {
-        selectionMode = 'drag';
-        dragStartPos = 0;
-      }
-      selectionStart = dragStartPos;
-      selectionEnd = userInput.length;
-    } else {
-      // Reset selection
-      selectionMode = 'none';
-      selectionStart = -1;
-      selectionEnd = -1;
-    }
-    return false;
-  }
-
-  return true; // Allow default behavior for other keys
-}
-
-// Start Pete's dialogue sequence
-function startPeteDialogue() {
-  console.log("Starting Pete dialogue sequence");
-  showBlankImage = true;
-  isTypingActive = false;
-  userInput = "";
-  cursorPosition = 0;
-  cursorVisible = true;
-  lastCursorBlink = millis();
-  peteRepeatCount = 0; // Reset the repeat count when starting dialogue
-  
-  // Reset Pete's video state
-  peteVideoPlaying = false;
-  peteVideoFinished = false;
-
-  // Reset selection
-  selectionMode = 'none';
-  selectionStart = -1;
-  selectionEnd = -1;
-
-  // Start with Q1 after a short delay
-  setTimeout(() => {
-    currentQuestion = "Can I take your order please?";
-    responseOptions = ["P_R1.1"];
-    showOptions = false;
-    timerStarted = false;
-    repeatCount = 0;
-  }, 200);
-}
-
-// Handle Pete's dialogue responses
-function handlePeteResponse(response) {
-  showOptions = false;
-  timerStarted = false;
-
-  // Dialogue flow handling using a state machine approach
-  const dialogueMap = {
-    "Can I take your order please?": {
-      // First interaction with only one option
-      oneOption: () => {
-        peteOrderTime += 0.2;
-        peteRepeatCount++; // Increment expression change counter
-        currentQuestion = "Can I take your order please?";
-        responseOptions = ["P_R1.1", "R_YES", "R_NO"];
-      },
-      // After showing multiple options
-      "1": () => {
-        repeatCount++;
-        peteRepeatCount++; // Increment expression change counter
-        
-        if (repeatCount >= 2) {
-          currentQuestion = "Okay then…NEXT CUSTOMER!";
-          responseOptions = [];
-          peteOrderTime = ORIGINAL_PETE_ORDER_TIME;
-          repeatCount = 0;
-          peteRepeatCount = 0; // Reset expression change counter
-        } else {
-          peteOrderTime += 0.2;
-          currentQuestion = "Can I take your order please?";
-        }
-      },
-      "2": () => {
-        repeatCount = 0;
-        peteRepeatCount = 0; // Reset expression change counter
-        currentQuestion = "What can I get you?";
-        responseOptions = ["P_R3.1", "P_R3.2", "P_R3.3"];
-      },
-      "3": () => {
-        repeatCount = 0;
-        peteRepeatCount = 0; // Reset expression change counter
-        currentQuestion = "Okay then…NEXT CUSTOMER!";
-        responseOptions = [];
-        peteOrderTime = ORIGINAL_PETE_ORDER_TIME;
-      }
-    },
-    "What can I get you?": {
-      "1": () => {
-        // Set up for video playback
-        currentQuestion = "Ya! What ……..?";
-        responseOptions = [
-          "*make a type box",
-          "P_R4.2"
-        ];
-        
-        // Reset video state variables
-        peteVideoPlaying = false;
-        peteVideoFinished = false;
-        window.peteVideoStartTime = null;
-        window.peteBlankShown = false;
-        window.peteResponseOptionsTimeoutSet = false;
-        
-        // Hide options until video finishes
-        showOptions = false;
-        
-        // Pre-buffer the video if available
-        if (peteQ4Video) {
-          peteQ4Video.elt.load(); // Force reload
-          peteQ4Video.elt.currentTime = 0; // Reset to beginning
-        }
-      },
-      "2": () => {
-        // Same setup for all drink options
-        currentQuestion = "Ya! What ……..?";
-        responseOptions = [
-          "*make a type box",
-          "P_R4.2"
-        ];
-        
-        // Reset video state variables
-        peteVideoPlaying = false;
-        peteVideoFinished = false;
-        window.peteVideoStartTime = null;
-        window.peteBlankShown = false;
-        window.peteResponseOptionsTimeoutSet = false;
-        
-        // Hide options until video finishes
-        showOptions = false;
-        
-        // Pre-buffer the video if available
-        if (peteQ4Video) {
-          peteQ4Video.elt.load(); // Force reload
-          peteQ4Video.elt.currentTime = 0; // Reset to beginning
-        }
-      },
-      "3": () => {
-        // Same setup for all drink options
-        currentQuestion = "Ya! What ……..?";
-        responseOptions = [
-          "*make a type box",
-          "P_R4.2"
-        ];
-        
-        // Reset video state variables
-        peteVideoPlaying = false;
-        peteVideoFinished = false;
-        window.peteVideoStartTime = null;
-        window.peteBlankShown = false;
-        window.peteResponseOptionsTimeoutSet = false;
-        
-        // Hide options until video finishes
-        showOptions = false;
-        
-        // Pre-buffer the video if available
-        if (peteQ4Video) {
-          peteQ4Video.elt.load(); // Force reload
-          peteQ4Video.elt.currentTime = 0; // Reset to beginning
-        }
-      },
-      default: () => {
-        // For any other response, use same setup
-        currentQuestion = "Ya! What ……..?";
-        responseOptions = [
-          "*make a type box",
-          "P_R4.2"
-        ];
-        
-        // Reset video state variables
-        peteVideoPlaying = false;
-        peteVideoFinished = false;
-        window.peteVideoStartTime = null;
-        window.peteBlankShown = false;
-        window.peteResponseOptionsTimeoutSet = false;
-        
-        // Hide options until video finishes
-        showOptions = false;
-      }
-    },
-    "Ya! What ……..?": {
-      "checkmark": () => {
-        // Save name and show confirmation (Q5.1)
-        currentQuestion = `${yourName} ok then`;
-        responseOptions = [];
-        
-        // After a short delay, transition to final drink delivery (Q6)
-        setTimeout(() => {
-          currentQuestion = `${yourName} here's your drink.`;
-        }, 1500);
-      },
-      "repeat": () => {
-        // If "I didn't catch that" is selected, show angry Pete (Q5.2)
-        currentQuestion = "YOUR NAME?!!!";
-        responseOptions = [
-          "*make a type box"
-        ];
-        showBlankImage = true;
-      },
-      "textbox": () => {
-        // This is now handled in mousePressed
-        console.log("Activating text input");
-        isTypingActive = true;
-      }
-    },
-    "YOUR NAME?!!!": {
-      "checkmark": () => {
-        // After entering name in the angry Pete screen, go directly to final screen
-        currentQuestion = `${yourName} here's your drink.`;
-        responseOptions = [];
-      },
-      "textbox": () => {
-        // This is now handled in mousePressed
-        console.log("Activating text input");
-        isTypingActive = true;
-      }
-    }
-  };
-
-  // Execute the appropriate dialogue flow
-  if (dialogueMap[currentQuestion]) {
-    if (responseOptions.length === 1 && dialogueMap[currentQuestion].oneOption) {
-      dialogueMap[currentQuestion].oneOption();
-    } else if (dialogueMap[currentQuestion][response]) {
-      dialogueMap[currentQuestion][response]();
-    } else if (dialogueMap[currentQuestion].default) {
-      dialogueMap[currentQuestion].default();
-    }
+  } catch (e) {
+    console.error('Error in mousePressed:', e);
   }
 }
-
-// Start Meowchi's dialogue sequence - UPDATED FOR NEW SEQUENCE
-function startMeowchiDialogue() {
-  console.log("Starting Meowchi dialogue sequence");
-  showBlankImage = true;
-  isTypingActive = false;
-  userInput = "";
-  cursorPosition = 0;
-  cursorVisible = true;
-  lastCursorBlink = millis();
-  meowishSequenceActive = false;
-  
-  // Reset video state
-  meowchiVideoPlaying = false;
-  meowchiVideoFinished = false;
-
-  // Reset selection
-  selectionMode = 'none';
-  selectionStart = -1;
-  selectionEnd = -1;
-
-  // Start with Q1 (new sequence) after a short delay
-  setTimeout(() => {
-    currentQuestion = "[speaks in Meowish]";
-    responseOptions = ["Display Captions"];
-    showOptions = false;
-    timerStarted = false;
-    displayTimer = 0; // Reset display timer to ensure proper timing
-  }, 200);
-}
-
-// Handle Meowchi's dialogue responses - UPDATED FOR NEW SEQUENCE
-function handleMeowchiResponse(response) {
-  showOptions = false;
-  timerStarted = true; // Keep timer active for Meowchi's responses
-
-  // Dialogue flow handling using a state machine approach
-  const dialogueMap = {
-    "[speaks in Meowish]": {
-      "Display Captions": () => {
-        currentQuestion = "meow meow me-meow meow?";
-        responseOptions = ["Huh", "Meow", "Subtitle Translation"];
-      }
-    },
-    
-    "meow meow me-meow meow?": {
-      "Huh": () => {
-        // Path 1: Q3.1 - Show confused face for 1 second, then continue with concerned face
-        meowishSequenceActive = true;
-        displayTimer = millis(); // Reset timer for the confused face transition
-        
-        // Change the image after 1 second
-        setTimeout(() => {
-          // Replace the current question with the concerned face version
-          currentQuestion = "concerned_meow"; // Using a special key for the concerned face state
-          
-          // Set responses to show after the confused face
-          responseOptions = ["Subtitle Translation", "re-chose barista"];
-          showOptions = true;
-        }, 1000);
-      },
-      "Meow": () => {
-        // Same behavior as "Huh" - follows Path 1
-        meowishSequenceActive = true;
-        displayTimer = millis(); // Reset timer for the confused face transition
-        
-        // Change the image after 1 second
-        setTimeout(() => {
-          // Replace the current question with the concerned face version
-          currentQuestion = "concerned_meow"; // Using a special key for the concerned face state
-          
-          // Set responses to show after the confused face
-          responseOptions = ["Subtitle Translation", "re-chose barista"];
-          showOptions = true;
-        }, 1000);
-      },
-      "Subtitle Translation": () => {
-        // Path 2: Q3.2 - Keep displaying the same question, but offer language options
-        // We keep the current question but change the response options
-        responseOptions = ["French", "English"];
-      }
-    },
-    
-    "concerned_meow": {
-      // Path 1 continues: R3.1 options
-      "Subtitle Translation": () => {
-        // Q4.1: User selected Subtitle Translation from concerned face state (Path 1)
-        currentQuestion = "concerned_french"; // Using a special key for the French with concerned face
-        responseOptions = ["For here", "A drink"];
-      },
-      "re-chose barista": () => {
-        state = "selection";
-      }
-    },
-    
-    "French": () => {
-      // Path 2 continues: Q4.2 - From normal face after selecting Subtitle Translation -> French
-      currentQuestion = "normal_french"; // Using a special key for the regular French face
-      responseOptions = ["For here", "A drink"];
-    },
-    
-    "English": () => {
-      // English is not available, do nothing (keep current options)
-      showOptions = true;
-    },
-    
-    // Both paths converge at R4 but with different question images displayed
-    // Both paths now branch again after R4
-    "concerned_french": {
-      "1": () => { // For here - Path 1.A
-        currentQuestion = "D'accord.. Vous etes pret?"; // Q5.1
-        responseOptions = ["Yes", "No"];
-      },
-      "2": () => { // A drink - Path 1.B
-        // Skip Q5.1 and R5, go directly to Q6.2
-        currentQuestion = "Quelle boisson veux-tu?"; // Q6.2
-        responseOptions = ["Whisker Matcha", "PURspresso", "Catnip Tea"];
-      }
-    },
-    
-    "normal_french": {
-      "1": () => { // For here - Path 2.A
-        currentQuestion = "D'accord.. Vous etes pret?"; // Q5.1
-        responseOptions = ["Yes", "No"];
-      },
-      "2": () => { // A drink - Path 2.B
-        // Skip Q5.1 and R5, go directly to Q6.2
-        currentQuestion = "Quelle boisson veux-tu?"; // Q6.2
-        responseOptions = ["Whisker Matcha", "PURspresso", "Catnip Tea"];
-      }
-    },
-    
-    "D'accord.. Vous etes pret?": { // Q5.1 with R5 options
-      "yes": () => { // If Yes (option 1) selected in R5, go to Q6.2
-        currentQuestion = "Quelle boisson veux-tu?";
-        responseOptions = ["Whisker Matcha", "PURspresso", "Catnip Tea"];
-      },
-      "no": () => { // If No (option 2) selected in R5, go to Q6.1
-        currentQuestion = "Oh d'accord alors…"; // This is Q6.1
-        responseOptions = [];
-        
-        // Create a special flag to track the "Oh d'accord alors…" display time
-        meowchiExitDelay = true;
-        displayTimer = millis(); // Reset the timer for this specific message
-        
-        // After 3 seconds, return to barista selection (handled in draw function)
-      }
-    },
-    
-    "Quelle boisson veux-tu?": {
-      "1": () => { // Whisker Matcha
-        // Play the blender video (Q7) - Handled in draw function
-        currentQuestion = "Compris. Puis-je avoir ton n-BLENDERRRR";
-        responseOptions = [
-          "*make a type box",
-          "WHAT DID YOU SAY?"
-        ];
-        
-        // Reset video state for playback
-        meowchiVideoPlaying = false;
-        meowchiVideoFinished = false;
-        window.videoStartTime = null; // Reset timestamp for video
-        window.blankShown = false; // Reset blank shown flag
-        window.responseOptionsTimeoutSet = false; // Reset response timeout flag
-        
-        // Make sure options are hidden until video finishes
-        showOptions = false;
-        displayTimer = millis(); // Reset timer
-        
-        // Pre-buffer the video if available to ensure immediate playback
-        if (meowchiQ6Video) {
-          meowchiQ6Video.elt.load(); // Force reload
-          meowchiQ6Video.elt.currentTime = 0; // Reset to beginning
-        }
-      },
-      "2": () => { // PURspresso
-        // Play the blender video (Q7) - Same as path 1
-        currentQuestion = "Compris. Puis-je avoir ton n-BLENDERRRR";
-        responseOptions = [
-          "*make a type box",
-          "WHAT DID YOU SAY?"
-        ];
-        
-        // Reset video state for playback
-        meowchiVideoPlaying = false;
-        meowchiVideoFinished = false;
-        window.videoStartTime = null; // Reset timestamp for video
-        window.blankShown = false; // Reset blank shown flag
-        window.responseOptionsTimeoutSet = false; // Reset response timeout flag
-        
-        // Make sure options are hidden until video finishes
-        showOptions = false;
-        displayTimer = millis(); // Reset timer
-        
-        // Pre-buffer the video if available to ensure immediate playback
-        if (meowchiQ6Video) {
-          meowchiQ6Video.elt.load(); // Force reload
-          meowchiQ6Video.elt.currentTime = 0; // Reset to beginning
-        }
-      },
-      "3": () => { // Catnip Tea
-        // Play the blender video (Q7) - Same as path 1
-        currentQuestion = "Compris. Puis-je avoir ton n-BLENDERRRR";
-        responseOptions = [
-          "*make a type box",
-          "WHAT DID YOU SAY?"
-        ];
-        
-        // Reset video state for playback
-        meowchiVideoPlaying = false;
-        meowchiVideoFinished = false;
-        window.videoStartTime = null; // Reset timestamp for video
-        window.blankShown = false; // Reset blank shown flag
-        window.responseOptionsTimeoutSet = false; // Reset response timeout flag
-        
-        // Make sure options are hidden until video finishes
-        showOptions = false;
-        displayTimer = millis(); // Reset timer
-        
-        // Pre-buffer the video if available to ensure immediate playback
-        if (meowchiQ6Video) {
-          meowchiQ6Video.elt.load(); // Force reload
-          meowchiQ6Video.elt.currentTime = 0; // Reset to beginning
-        }
-      }
-    },
-    
-    "Compris. Puis-je avoir ton n-BLENDERRRR": {
-      "textbox": () => {
-        // This is handled in mousePressed
-        console.log("Activating text input");
-        isTypingActive = true;
-      },
-      "what": () => {
-        // Path 2: User selects "WHAT DID YOU SAY?" (option 2 in R7)
-        currentQuestion = "… votre nom?"; // Q8.2
-        responseOptions = [
-          "*make a type box"
-        ];
-      },
-      "checkmark": () => {
-        // Path 1: User entered name directly after blender sound (option 1 in R7)
-        // Save name and show confirmation (Q8.1)
-        currentQuestion = "MEOWCHI_Q7_1"; // "Name"? Hmmm
-        responseOptions = [];
-        
-        // After a short delay, transition to final drink message (Q9.2)
-        setTimeout(() => {
-          currentQuestion = "MEOWCHI_Q8"; // Final drink message
-          
-          // After 4 seconds, transition to the meowchi_end screen
-          setTimeout(() => {
-            state = "meowchi_end";
-            currentQuestion = "";
-            responseOptions = [];
-          }, 4000);
-        }, 2000);
-      }
-    },
-    
-    "… votre nom?": {
-      "textbox": () => {
-        // This is handled in mousePressed
-        console.log("Activating text input");
-        isTypingActive = true;
-      },
-      "checkmark": () => {
-        // Path 2 continues: User entered name after "... votre nom?" (R8)
-        // Save name and show confirmation (Q9.1)
-        currentQuestion = "MEOWCHI_Q7_3"; // "*name*, d'accord."
-        responseOptions = [];
-        
-        // After a short delay, transition to final drink delivery (Q9.2)
-        setTimeout(() => {
-          currentQuestion = "MEOWCHI_Q8"; // Final drink message
-          
-          // After 4 seconds, return to mug
-          setTimeout(() => {
-            state = "meowchi_end";
-            currentQuestion = "";
-            responseOptions = [];
-          }, 4000);
-        }, 2000);
-      }
-    }
-  };
-  
-  // Execute the appropriate dialogue flow
-  if (dialogueMap[currentQuestion] && dialogueMap[currentQuestion][response]) {
-    dialogueMap[currentQuestion][response]();
-  } else if (typeof dialogueMap[response] === 'function') {
-    dialogueMap[response]();
-  }
-}
-
-    // HTML setup script tags:
-    // <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    // <script src="coffee_shop_game.js"></script>
