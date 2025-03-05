@@ -25,6 +25,12 @@ const CURSOR_BLINK_RATE = 500; // Blink every 500ms
 let pixellariFont; // Variable to store the Pixellari font
 let showEndScreen = false; // Flag to show the end screen
 
+let introVideo;
+let introVideoPlaying = true;
+let introVideoLoaded = false;
+
+
+
 // AUDIO VARIABLES - Add these at the top with other global variables
 let peteDefaultAudio, peteConfusedAudio, peteTiredAudio, peteAngryAudio;
 let meowchiDefaultAudio, meowchiConfusedAudio, meowchiWorriedAudio, meowchiKindAudio;
@@ -89,6 +95,23 @@ function loadGameImage(path, fallbackColor) {
   );
 }
 
+function videoIsPlaying(video) {
+  return video && 
+         video.elt && 
+         !video.elt.paused && 
+         video.elt.currentTime > 0 && 
+         !video.elt.ended;
+}
+
+function forcePlayVideo() {
+  if (introVideo && introVideoLoaded && state === "intro") {
+    // Using a user gesture to play video
+    introVideo.loop();
+    introVideo.volume(1);
+    console.log('Forcing video play from user gesture');
+  }
+}
+
 // Helper function to ensure consistent image dimensions
 function getImagePlacement() {
   const bottomMargin = height * 0.02;
@@ -104,6 +127,29 @@ function preload() {
   try {
     // Load font
     pixellariFont = loadFont('Pixellari.ttf');
+
+    // Load intro video
+    try {
+    introVideo = createVideo(['BG_introVID.mp4']);
+      introVideo.hide(); // Hide the video element by default
+      
+      // Preload the video to ensure it's ready to play
+      introVideo.elt.preload = "auto"; // Force preloading
+      introVideo.elt.load(); // Start loading immediately
+      
+      // Set video attributes
+      introVideo.elt.muted = false;
+      introVideo.elt.playsinline = true;
+      introVideo.elt.controls = false;
+      
+      // We'll use p5's built-in loop() method instead of a custom listener
+      // as it's more reliable
+      
+      console.log('BG_introVID.mp4 loading started');
+    } catch (e) {
+      console.error('Failed to load BG_introVID.mp4:', e);
+      introVideo = null;
+    }
     
     // Load barista selection background
     baristaSelectionBackground = loadGameImage('BG_baristas.png', [200, 200, 220]);
@@ -455,6 +501,72 @@ try {
 // Handle complex key press events
 function keyPressed() {
 try {
+  // if (state === "intro" && keyCode === ENTER) {
+  //   // This is important: if video hasn't started, force play it first
+  //   // Many browsers won't let videos play until user interaction
+  //   if (introVideo && !videoIsPlaying(introVideo)) {
+  //     forcePlayVideo();
+  //     console.log("Video wasn't playing, attempting to start it first");
+  //     // But still proceed to selection screen after a short delay
+  //     setTimeout(function() {
+  //       // Stop the intro video
+  //       introVideo.stop();
+  //       introVideoPlaying = false;
+  //       // Transition to barista selection
+  //       state = "selection";
+  //     }, 300);
+  //   } else {
+  //     // If video was already playing, stop it and transition immediately
+  //     if (introVideo) {
+  //       introVideo.stop();
+  //       introVideoPlaying = false;
+  //     }
+  //     // Transition to barista selection
+  //     state = "selection";
+  //   }
+    
+  //   // Remove the document listeners once we're past the intro
+  //   document.removeEventListener('click', forcePlayVideo);
+  //   document.removeEventListener('touchstart', forcePlayVideo);
+    
+  //   return false; // Prevent default behavior
+  // }
+  if (state === "intro" && keyCode === ENTER) {
+    console.log("Enter key pressed in intro state");
+    
+    // Clean up the video completely
+    if (introVideo) {
+      try {
+        introVideo.stop();
+        introVideo.remove(); // Remove the element completely
+        introVideoPlaying = false;
+        introVideoLoaded = false;
+        window.lastVideoTime = null;
+      } catch (e) {
+        console.error("Error cleaning up intro video:", e);
+      }
+    }
+    
+    // Remove the document listeners
+    document.removeEventListener('click', forcePlayVideo);
+    document.removeEventListener('touchstart', forcePlayVideo);
+    
+    // Force a clean transition
+    clear();
+    background(220);
+    
+    // Set state FIRST before trying to redraw anything
+    state = "selection";
+    
+    // Reset all game variables
+    showBlankImage = false;
+    showOptions = false;
+    selectedBarista = "";
+    
+    // Force redraw in the next frame
+    return false;
+  }
+
   if (!isTypingActive) return true;
 
   // Handle Enter key for form submission when checkmark is visible
@@ -1170,6 +1282,27 @@ function setup() {
     textAlign(CENTER, CENTER);
     textSize(height * 0.02);
     
+    window.lastState = "intro";
+
+    // Set state to "intro" instead of "selection"
+    state = "intro";
+
+    if (introVideo) {
+      // Don't start playing yet - wait for user interaction first
+      // because many browsers block autoplay
+      introVideoPlaying = true;
+      
+      // Add an event listener to mark when the video is ready to play
+      introVideo.elt.addEventListener('canplay', function() {
+        introVideoLoaded = true;
+        console.log('Intro video can play now');
+      });
+      
+      // Add direct event listeners to the document for better interaction capture
+      document.addEventListener('click', forcePlayVideo);
+      document.addEventListener('touchstart', forcePlayVideo);
+    }
+
     // Use default font as fallback if Pixellari doesn't load properly
     if (!pixellariFont) {
       console.warn("Pixellari font not loaded, using default font instead");
@@ -1226,7 +1359,134 @@ function setup() {
   }
 }
 
+function rebuildBaristaSelection() {
+  if (baristaSelectionBackground) {
+    // Force reload the image
+    baristaSelectionBackground.resize(0, 0);
+  }
+  if (baristaPeteImage) {
+    baristaPeteImage.resize(0, 0);
+  }
+  if (baristaMeowchiImage) {
+    baristaMeowchiImage.resize(0, 0);
+  }
+  console.log("Barista selection elements reinitialized");
+}
+
+// function drawIntroScreen() {
+//   // If video is loaded and playing, display it
+//   if (introVideo && introVideoLoaded) {
+//     // Display the video filling the entire canvas
+//     image(introVideo, 0, 0, width, height);
+    
+//     // Add "Press ENTER to start" text at the bottom of the screen
+//     // if (pixellariFont) {
+//     //   textFont(pixellariFont);
+//     // }
+    
+//     // // Use a semi-transparent background for better text visibility
+//     // fill(0, 0, 0, 150); // Semi-transparent black
+//     // noStroke();
+//     // rectMode(CENTER);
+//     // rect(width/2, height * 0.85, width * 0.5, height * 0.1, 10);
+    
+//     // // Draw text
+//     // fill(255);
+//     // textSize(height * 0.04);
+//     // text("Press ENTER to start", width/2, height * 0.85);
+    
+//     // // Reset text settings
+//     // textSize(height * 0.02);
+//     // textFont('sans-serif');
+//     // rectMode(CORNER);
+//   } else {
+//     // Fallback if video is not loaded or available
+//     background(30);
+//     fill(255);
+//     textSize(height * 0.05);
+//     text("Coffee Shop", width/2, height * 0.4);
+    
+//     textSize(height * 0.04);
+//     text("Press ENTER to start", width/2, height * 0.6);
+    
+//     textSize(height * 0.02); // Reset text size
+//   }
+// }
+
 // AUDIO FUNCTION - Function to play audio based on the current dialogue state
+
+function drawIntroScreen() {
+  // Check if video element exists
+  if (introVideo) {
+    // First attempt to play the video if it's not already playing
+    // Note: This might not work until user interaction, which is handled by the click listener
+    if (introVideoLoaded && !introVideo.elt.playing && !introVideo.elt.paused) {
+      introVideo.loop();
+      introVideo.volume(1);
+      console.log('Attempting to start intro video');
+    }
+    
+    // Display the video regardless of play state - this ensures we at least show the first frame
+    background(0); // Black background in case video has transparency
+    image(introVideo, 0, 0, width, height);
+    
+    // Check if video is actually playing by comparing consecutive frames
+    // This is a trick to detect if the video is actually advancing
+    if (!window.lastVideoTime) {
+      window.lastVideoTime = introVideo.time();
+    } else if (introVideo.time() !== window.lastVideoTime) {
+      window.lastVideoTime = introVideo.time();
+      console.log('Video is playing, time:', introVideo.time());
+    }
+    
+    // Add "Press ENTER to start" text at the bottom of the screen
+    if (pixellariFont) {
+      textFont(pixellariFont);
+    }
+    
+    // Use a semi-transparent background for better text visibility
+    // fill(0, 0, 0, 150); // Semi-transparent black
+    // noStroke();
+    // rectMode(CENTER);
+    // rect(width/2, height * 0.85, width * 0.5, height * 0.1, 10);
+    
+    // Draw text
+    fill(255);
+    textSize(height * 0.04);
+    
+    // If video isn't loaded yet, show click prompt first
+    if (!introVideoLoaded) {
+      text("Click to load video, then press ENTER to start", width/2, height * 0.85);
+    } 
+    // else {
+    //   text("Press ENTER to start", width/2, height * 0.85);
+    // }
+    
+    // Add a click here message at center if video isn't playing yet
+    if (introVideoLoaded && introVideo.elt.paused) {
+      fill(255);
+      textSize(height * 0.05);
+      text("Click to play video", width/2, height * 0.5);
+    }
+    
+    // Reset text settings
+    textSize(height * 0.02);
+    textFont('sans-serif');
+    rectMode(CORNER);
+  } else {
+    // Fallback if video object doesn't exist at all
+    background(30);
+    fill(255);
+    textSize(height * 0.05);
+    text("Coffee Shop", width/2, height * 0.4);
+    
+    textSize(height * 0.04);
+    text("Press ENTER to start", width/2, height * 0.6);
+    
+    textSize(height * 0.02); // Reset text size
+  }
+}
+
 function playAudioForState(state, question) {
   try {
     // Don't play audio for video states (they have their own audio)
@@ -1382,13 +1642,29 @@ function peteVideoEnded() {
 // Main draw function to render different game states
 function draw() {
   try {
+    if (!window.lastState) window.lastState = state;
+    if (window.lastState !== state) {
+      console.log(`State changed from ${window.lastState} to ${state}`);
+      window.lastState = state;
+      
+      // If transitioning from intro to selection, force a clear
+      if (state === "selection") {
+        clear();
+        background(240);
+        console.log("Forced clear for selection state");
+      }
+    }
+
     // Only use default background for states other than pete, meowchi, and mug
     if (state !== "pete" && state !== "meowchi" && state !== "mug" && 
-        state !== "pete_end" && state !== "meowchi_end") {
+        state !== "pete_end" && state !== "meowchi_end" && state !== "intro") {
       background(220);
     }
     
     switch(state) {
+      case "intro":
+        drawIntroScreen();
+        break;
       case "selection":
         drawBaristaSelection();
         showBlankImage = false;
@@ -1410,7 +1686,7 @@ function draw() {
         drawMeowchiEnd();
         break;
       default:
-        state = "selection";
+        state = "intro"; // Change default to intro instead of selection
         showBlankImage = false;
         break;
     }
@@ -1445,55 +1721,91 @@ function drawMeowchiEnd() {
 }
 
 // Draw the barista selection screen
+// function drawBaristaSelection() {
+//   // Use the barista selection background image
+//   if (baristaSelectionBackground) {
+//     image(baristaSelectionBackground, 0, 0, width, height);
+//   } else {
+//     // Fallback if image doesn't load
+//     background(240);
+//   }
+  
+//   // Position the barista images side by side with good spacing
+//   // Make them smaller (15% of screen height) and much lower on the screen (90% from the top)
+//   const imageHeight = height * 0.15; // 15% of screen height
+  
+//   // Calculate width while maintaining aspect ratio
+//   let peteWidth, meowchiWidth;
+  
+//   if (baristaPeteImage && baristaMeowchiImage) {
+//     // Use actual image dimensions to maintain aspect ratio
+//     peteWidth = (imageHeight / baristaPeteImage.height) * baristaPeteImage.width;
+//     meowchiWidth = (imageHeight / baristaMeowchiImage.height) * baristaMeowchiImage.width;
+    
+//     // Position the images
+//     const spacing = width * 0.05; // 10% of screen width
+//     const totalWidth = peteWidth + meowchiWidth + spacing;
+//     const startX = (width - totalWidth) / 2;
+    
+//     // Position them at 90% from the top of the screen
+//     // Subtract the image height so the top of the image is at the 90% mark
+//     const startY = height * 0.85 - imageHeight; 
+    
+//     // Draw Pete's barista image on the left
+//     image(
+//       baristaPeteImage,
+//       startX,
+//       startY,
+//       peteWidth,
+//       imageHeight
+//     );
+    
+//     // Draw Meowchi's barista image on the right
+//     image(
+//       baristaMeowchiImage,
+//       startX + peteWidth + spacing,
+//       startY,
+//       meowchiWidth,
+//       imageHeight
+//     );
+//   } else {
+//     // Fallback if images don't load
+//     fill(220);
+//     textSize(width / 30);
+//     text("Order with Pete", width/4, height * 0.9);
+//     text("Order with Meowchi", 3*width/4, height * 0.9);
+//   }
+// }
+
 function drawBaristaSelection() {
+  console.log("Drawing barista selection screen");
+  
+  // Force clear the canvas
+  clear();
+  background(240);
+  
   // Use the barista selection background image
   if (baristaSelectionBackground) {
+    // Force redraw of the image
     image(baristaSelectionBackground, 0, 0, width, height);
-  } else {
-    // Fallback if image doesn't load
-    background(240);
   }
   
-  // Position the barista images side by side with good spacing
-  // Make them smaller (15% of screen height) and much lower on the screen (90% from the top)
-  const imageHeight = height * 0.15; // 15% of screen height
-  
-  // Calculate width while maintaining aspect ratio
-  let peteWidth, meowchiWidth;
-  
+  // Make sure baristaPeteImage and baristaMeowchiImage are properly drawn
   if (baristaPeteImage && baristaMeowchiImage) {
-    // Use actual image dimensions to maintain aspect ratio
-    peteWidth = (imageHeight / baristaPeteImage.height) * baristaPeteImage.width;
-    meowchiWidth = (imageHeight / baristaMeowchiImage.height) * baristaMeowchiImage.width;
+    const imageHeight = height * 0.15;
+    const peteWidth = (imageHeight / baristaPeteImage.height) * baristaPeteImage.width;
+    const meowchiWidth = (imageHeight / baristaMeowchiImage.height) * baristaMeowchiImage.width;
     
-    // Position the images
-    const spacing = width * 0.05; // 10% of screen width
+    const spacing = width * 0.05;
     const totalWidth = peteWidth + meowchiWidth + spacing;
     const startX = (width - totalWidth) / 2;
+    const startY = height * 0.85 - imageHeight;
     
-    // Position them at 90% from the top of the screen
-    // Subtract the image height so the top of the image is at the 90% mark
-    const startY = height * 0.85 - imageHeight; 
-    
-    // Draw Pete's barista image on the left
-    image(
-      baristaPeteImage,
-      startX,
-      startY,
-      peteWidth,
-      imageHeight
-    );
-    
-    // Draw Meowchi's barista image on the right
-    image(
-      baristaMeowchiImage,
-      startX + peteWidth + spacing,
-      startY,
-      meowchiWidth,
-      imageHeight
-    );
+    // Draw barista images
+    image(baristaPeteImage, startX, startY, peteWidth, imageHeight);
+    image(baristaMeowchiImage, startX + peteWidth + spacing, startY, meowchiWidth, imageHeight);
   } else {
-    // Fallback if images don't load
+    // Fallback if images fail to load
     fill(220);
     textSize(width / 30);
     text("Order with Pete", width/4, height * 0.9);
