@@ -30,7 +30,7 @@ let introVideoPlaying = true;
 let introVideoLoaded = false;
 
 let backgroundMusic;
-let musicVolume = 0.2; // 20% volume
+let musicVolume = 0.1; // 10% volume
 
 
 
