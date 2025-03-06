@@ -1409,7 +1409,11 @@ function playAudioForState(state, question) {
     }
     
     // Generate a unique key for this dialogue state
-    const dialogueKey = `${state}_${question}`;
+    // const dialogueKey = `${state}_${question}`;
+    const dialogueKey = state === "pete" ? 
+    `${state}_${question}_${peteRepeatCount}` : 
+    `${state}_${question}`;
+  
     
     // Skip if we've already played audio for this state
     if (audioPlayed[dialogueKey]) {
@@ -1425,16 +1429,16 @@ function playAudioForState(state, question) {
     
     // Determine which audio to play based on Pete's dialogue states
     if (state === "pete") {
-    if (question === "Can I take your order please?") {
-      // Different audio based on repeat count
-      if (peteRepeatCount === 0) {
-        audioToPlay = peteDefaultAudio; // Q1: Normal face
-      } else if (peteRepeatCount === 1) {
-        audioToPlay = peteConfusedAudio; // Q2: Confused face
-      } else {
-        audioToPlay = peteTiredAudio; // Q3.1: Tired face
-      }
-    } 
+      if (question === "Can I take your order please?") {
+        // Different audio based on repeat count
+        if (peteRepeatCount === 0) {
+          audioToPlay = peteDefaultAudio; // Q1: Normal face
+        } else if (peteRepeatCount === 1) {
+          audioToPlay = peteConfusedAudio; // Q2: Confused face
+        } else {
+          audioToPlay = peteTiredAudio; // Q3.1: Tired face
+        }
+      } 
     else if (question === "Okay then…NEXT CUSTOMER!") {
       audioToPlay = peteAngryAudio; // Q3.R2
     }
