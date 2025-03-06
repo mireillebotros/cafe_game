@@ -1015,16 +1015,23 @@ function handleMeowchiResponse(response) {
     },
     
     "concerned_meow": {
-      // Path 1 continues: R3.1 options
-      "Subtitle Translation": () => {
-        // Q4.1: User selected Subtitle Translation from concerned face state (Path 1)
-        currentQuestion = "concerned_french"; // Using a special key for the French with concerned face
-        responseOptions = ["For here", "A drink"];
-      },
-      "re-chose barista": () => {
-        state = "selection";
-      }
-    },
+  // Path 1 continues: R3.1 options
+  "Subtitle Translation": () => {
+    // Currently jumps straight to concerned_french
+    // Should instead show language options like in the original path
+    responseOptions = ["French", "English"];
+    // Keep showing the same concerned meow face
+    showOptions = true;
+  },
+  "re-chose barista": () => {
+    state = "selection";
+  },
+  "French": () => {
+    // When French is selected from the concerned face
+    currentQuestion = "concerned_french"; // Using a special key for the French with concerned face
+    responseOptions = ["For here", "A drink"];
+  }
+},
     
     "French": () => {
       // Path 2 continues: Q4.2 - From normal face after selecting Subtitle Translation -> French
