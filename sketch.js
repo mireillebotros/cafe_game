@@ -982,6 +982,12 @@ function handleMeowchiResponse(response) {
         meowishSequenceActive = true;
         displayTimer = millis(); // Reset timer for the confused face transition
         
+        // Force play the confused audio right away
+        resetAudioForNewDialogue();
+        setTimeout(() => {
+          playAudioForState("meowchi", "meow meow me-meow meow?");
+        }, 50);
+        
         // Change the image after 1 second
         setTimeout(() => {
           // Replace the current question with the concerned face version
@@ -990,6 +996,12 @@ function handleMeowchiResponse(response) {
           // Set responses to show after the confused face
           responseOptions = ["Subtitle Translation", "re-chose barista"];
           showOptions = true;
+          
+          // Force play audio for this new state
+          resetAudioForNewDialogue();
+          setTimeout(() => {
+            playAudioForState("meowchi", "concerned_meow");
+          }, 50);
         }, 1000);
       },
       "Meow": () => {
@@ -1236,6 +1248,9 @@ function handleMeowchiResponse(response) {
   if (previousQuestion !== currentQuestion) {
     resetAudioForNewDialogue();
   }
+  setTimeout(() => {
+    playAudioForState("meowchi", currentQuestion);
+  }, 50);
 }
 
 // Start Meowchi's dialogue sequence - UPDATED FOR NEW SEQUENCE
@@ -1401,6 +1416,116 @@ function drawIntroScreen() {
   }
 }
 
+// function playAudioForState(state, question) {
+//   try {
+//     // Don't play audio for video states (they have their own audio)
+//     if (question === "Ya! What ……..?" || question === "Compris. Puis-je avoir ton n-BLENDERRRR") {
+//       return;
+//     }
+    
+//     // Generate a unique key for this dialogue state
+//     // const dialogueKey = `${state}_${question}`;
+//     const dialogueKey = state === "pete" ? 
+//     `${state}_${question}_${peteRepeatCount}` : 
+//     `${state}_${question}`;
+  
+    
+//     // Skip if we've already played audio for this state
+//     if (audioPlayed[dialogueKey]) {
+//       return;
+//     }
+    
+//     // Stop any currently playing audio
+//     if (currentAudio && currentAudio.isPlaying()) {
+//       currentAudio.stop();
+//     }
+    
+//     let audioToPlay = null;
+    
+//     // Determine which audio to play based on Pete's dialogue states
+//     if (state === "pete") {
+//       if (question === "Can I take your order please?") {
+//         // Different audio based on repeat count
+//         if (peteRepeatCount === 0) {
+//           audioToPlay = peteDefaultAudio; // Q1: Normal face
+//         } else if (peteRepeatCount === 1) {
+//           audioToPlay = peteConfusedAudio; // Q2: Confused face
+//         } else {
+//           audioToPlay = peteTiredAudio; // Q3.1: Tired face
+//         }
+//       } 
+//     else if (question === "Okay then…NEXT CUSTOMER!") {
+//       audioToPlay = peteAngryAudio; // Q3.R2
+//     }
+//     else if (question === "What can I get you?") {
+//       audioToPlay = peteDefaultAudio; // Q3.2
+//     }
+//     else if (question.includes("ok then") && !question.includes("here's your drink")) {
+//       audioToPlay = peteConfusedAudio; // Q5.1
+//     }
+//     else if (question === "YOUR NAME?!!!") {
+//       audioToPlay = peteAngryAudio; // Q5.2
+//     }
+//     else if (question.includes("here's your drink")) {
+//       audioToPlay = peteTiredAudio; // Q6
+//     }
+//   }
+//   // Determine which audio to play based on Meowchi's dialogue states
+//   else if (state === "meowchi") {
+//     if (question === "[speaks in Meowish]") {
+//       audioToPlay = meowchiDefaultAudio; // Q1
+//     }
+//     else if (question === "meow meow me-meow meow?" && !meowishSequenceActive) {
+//       audioToPlay = meowchiDefaultAudio; // Q2: Normal face
+//     }
+//     else if (question === "concerned_meow" || 
+//             (question === "meow meow me-meow meow?" && meowishSequenceActive)) {
+//       audioToPlay = meowchiConfusedAudio; // Q3.1: Concerned face
+//     }
+//     else if (question === "concerned_french") {
+//       audioToPlay = meowchiWorriedAudio; // Q4.1: With concerned face
+//     }
+//     else if (question === "normal_french") {
+//       audioToPlay = meowchiDefaultAudio; // Q4.2: With normal face
+//     }
+//     else if (question === "D'accord.. Vous etes pret?") {
+//       audioToPlay = meowchiWorriedAudio; // Q5
+//     }
+//     else if (question === "Oh d'accord alors…") {
+//       audioToPlay = meowchiWorriedAudio; // Q6.1
+//     }
+//     else if (question === "Quelle boisson veux-tu?") {
+//       audioToPlay = meowchiDefaultAudio; // Q6.2
+//     }
+//     else if (question === "MEOWCHI_Q7_1") { // "[Name]?" hmmm
+//       audioToPlay = meowchiConfusedAudio; // Q8.1
+//     }
+//     else if (question === "… votre nom?") {
+//       audioToPlay = meowchiWorriedAudio; // Q8.2
+//     }
+//     else if (question === "MEOWCHI_Q7_3") { // "[Name], d'accord"
+//       audioToPlay = meowchiWorriedAudio; // Q9.1
+//     }
+//     else if (question === "MEOWCHI_Q8") { // Final drink message
+//       audioToPlay = meowchiKindAudio; // Q9.2
+//     }
+//   }
+  
+//   // Play the selected audio
+//   if (audioToPlay) {
+//     currentAudio = audioToPlay;
+//     audioToPlay.play();
+//     audioPlayed[dialogueKey] = true;
+//     console.log(`Playing audio for: ${state} - ${question}`);
+//   }
+//   } catch (e) {
+//     console.error('Error playing audio:', e);
+//   }
+// }
+
+// AUDIO FUNCTION - Reset audio state when dialogue changes
+
+// AUDIO FUNCTION - Function to play audio based on the current dialogue state
 function playAudioForState(state, question) {
   try {
     // Don't play audio for video states (they have their own audio)
@@ -1409,11 +1534,10 @@ function playAudioForState(state, question) {
     }
     
     // Generate a unique key for this dialogue state
-    // const dialogueKey = `${state}_${question}`;
+    // Include peteRepeatCount for Pete to differentiate between facial expressions
     const dialogueKey = state === "pete" ? 
-    `${state}_${question}_${peteRepeatCount}` : 
-    `${state}_${question}`;
-  
+      `${state}_${question}_${peteRepeatCount}` : 
+      `${state}_${question}`;
     
     // Skip if we've already played audio for this state
     if (audioPlayed[dialogueKey]) {
@@ -1430,85 +1554,86 @@ function playAudioForState(state, question) {
     // Determine which audio to play based on Pete's dialogue states
     if (state === "pete") {
       if (question === "Can I take your order please?") {
-        // Different audio based on repeat count
+        // Now directly use peteRepeatCount to determine the audio
         if (peteRepeatCount === 0) {
           audioToPlay = peteDefaultAudio; // Q1: Normal face
+          console.log("Playing pete_default at Q1");
         } else if (peteRepeatCount === 1) {
           audioToPlay = peteConfusedAudio; // Q2: Confused face
-        } else {
+          console.log("Playing pete_confused at Q2");
+        } else if (peteRepeatCount >= 2) {
           audioToPlay = peteTiredAudio; // Q3.1: Tired face
+          console.log("Playing pete_tired at Q3.1");
         }
       } 
-    else if (question === "Okay then…NEXT CUSTOMER!") {
-      audioToPlay = peteAngryAudio; // Q3.R2
+      else if (question === "Okay then…NEXT CUSTOMER!") {
+        audioToPlay = peteAngryAudio; // Q3.R2
+      }
+      else if (question === "What can I get you?") {
+        audioToPlay = peteDefaultAudio; // Q3.2
+      }
+      else if (question.includes("ok then") && !question.includes("here's your drink")) {
+        audioToPlay = peteConfusedAudio; // Q5.1
+      }
+      else if (question === "YOUR NAME?!!!") {
+        audioToPlay = peteAngryAudio; // Q5.2
+      }
+      else if (question.includes("here's your drink")) {
+        audioToPlay = peteTiredAudio; // Q6
+      }
     }
-    else if (question === "What can I get you?") {
-      audioToPlay = peteDefaultAudio; // Q3.2
+    // Meowchi's audio states - fixed according to requirements
+    else if (state === "meowchi") {
+      if (question === "[speaks in Meowish]") {
+        audioToPlay = meowchiDefaultAudio; // Q1
+      }
+      else if (question === "meow meow me-meow meow?" && !meowishSequenceActive) {
+        audioToPlay = meowchiDefaultAudio; // Q2: Normal face
+      }
+      else if (question === "concerned_meow" || 
+               (question === "meow meow me-meow meow?" && meowishSequenceActive)) {
+        audioToPlay = meowchiConfusedAudio; // Q3.1: Concerned face
+      }
+      else if (question === "concerned_french") {
+        audioToPlay = meowchiWorriedAudio; // Q4.1: With concerned face
+      }
+      else if (question === "normal_french") {
+        audioToPlay = meowchiDefaultAudio; // Q4.2: With normal face
+      }
+      else if (question === "D'accord.. Vous etes pret?") {
+        audioToPlay = meowchiWorriedAudio; // Q5
+      }
+      else if (question === "Oh d'accord alors…") {
+        audioToPlay = meowchiWorriedAudio; // Q6.1
+      }
+      else if (question === "Quelle boisson veux-tu?") {
+        audioToPlay = meowchiDefaultAudio; // Q6.2
+      }
+      else if (question === "MEOWCHI_Q7_1") { // "[Name]?" hmmm
+        audioToPlay = meowchiConfusedAudio; // Q8.1
+      }
+      else if (question === "… votre nom?") {
+        audioToPlay = meowchiWorriedAudio; // Q8.2
+      }
+      else if (question === "MEOWCHI_Q7_3") { // "[Name], d'accord"
+        audioToPlay = meowchiWorriedAudio; // Q9.1
+      }
+      else if (question === "MEOWCHI_Q8") { // Final drink message
+        audioToPlay = meowchiKindAudio; // Q9.2
+      }
     }
-    else if (question.includes("ok then") && !question.includes("here's your drink")) {
-      audioToPlay = peteConfusedAudio; // Q5.1
+    
+    // Play the selected audio
+    if (audioToPlay) {
+      currentAudio = audioToPlay;
+      audioToPlay.play();
+      audioPlayed[dialogueKey] = true;
+      console.log(`Playing audio for: ${state} - ${question}`);
     }
-    else if (question === "YOUR NAME?!!!") {
-      audioToPlay = peteAngryAudio; // Q5.2
-    }
-    else if (question.includes("here's your drink")) {
-      audioToPlay = peteTiredAudio; // Q6
-    }
-  }
-  // Determine which audio to play based on Meowchi's dialogue states
-  else if (state === "meowchi") {
-    if (question === "[speaks in Meowish]") {
-      audioToPlay = meowchiDefaultAudio; // Q1
-    }
-    else if (question === "meow meow me-meow meow?" && !meowishSequenceActive) {
-      audioToPlay = meowchiDefaultAudio; // Q2: Normal face
-    }
-    else if (question === "concerned_meow" || 
-            (question === "meow meow me-meow meow?" && meowishSequenceActive)) {
-      audioToPlay = meowchiConfusedAudio; // Q3.1: Concerned face
-    }
-    else if (question === "concerned_french") {
-      audioToPlay = meowchiWorriedAudio; // Q4.1: With concerned face
-    }
-    else if (question === "normal_french") {
-      audioToPlay = meowchiDefaultAudio; // Q4.2: With normal face
-    }
-    else if (question === "D'accord.. Vous etes pret?") {
-      audioToPlay = meowchiWorriedAudio; // Q5
-    }
-    else if (question === "Oh d'accord alors…") {
-      audioToPlay = meowchiWorriedAudio; // Q6.1
-    }
-    else if (question === "Quelle boisson veux-tu?") {
-      audioToPlay = meowchiDefaultAudio; // Q6.2
-    }
-    else if (question === "MEOWCHI_Q7_1") { // "[Name]?" hmmm
-      audioToPlay = meowchiConfusedAudio; // Q8.1
-    }
-    else if (question === "… votre nom?") {
-      audioToPlay = meowchiWorriedAudio; // Q8.2
-    }
-    else if (question === "MEOWCHI_Q7_3") { // "[Name], d'accord"
-      audioToPlay = meowchiWorriedAudio; // Q9.1
-    }
-    else if (question === "MEOWCHI_Q8") { // Final drink message
-      audioToPlay = meowchiKindAudio; // Q9.2
-    }
-  }
-  
-  // Play the selected audio
-  if (audioToPlay) {
-    currentAudio = audioToPlay;
-    audioToPlay.play();
-    audioPlayed[dialogueKey] = true;
-    console.log(`Playing audio for: ${state} - ${question}`);
-  }
   } catch (e) {
     console.error('Error playing audio:', e);
   }
 }
-
-// AUDIO FUNCTION - Reset audio state when dialogue changes
 function resetAudioForNewDialogue() {
   try {
     // Stop any currently playing audio
