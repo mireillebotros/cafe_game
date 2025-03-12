@@ -30,7 +30,7 @@ let introVideoPlaying = true;
 let introVideoLoaded = false;
 
 let backgroundMusic;
-let musicVolume = 0.1; // 10% volume
+let musicVolume = 0.3; // 30% volume
 
 
 
@@ -958,6 +958,17 @@ function handlePeteResponse(response) {
         // After a short delay, transition to final drink delivery (Q6)
         setTimeout(() => {
           currentQuestion = `${yourName} here's your drink.`;
+          
+          // ADD THIS: Force play the tired audio when transitioning to Q6
+          if (peteTiredAudio) {
+            if (currentAudio && currentAudio.isPlaying()) {
+              currentAudio.stop();
+            }
+            currentAudio = peteTiredAudio;
+            peteTiredAudio.play();
+            // Mark this audio as played in the current dialogue
+            audioPlayed[`pete_${currentQuestion}_final`] = true;
+          }
         }, 1500);
       },
       "repeat": () => {
@@ -979,6 +990,17 @@ function handlePeteResponse(response) {
         // After entering name in the angry Pete screen, go directly to final screen
         currentQuestion = `${yourName} here's your drink.`;
         responseOptions = [];
+        
+        // ADD THIS: Force play the tired audio when showing Q6 directly
+        if (peteTiredAudio) {
+          if (currentAudio && currentAudio.isPlaying()) {
+            currentAudio.stop();
+          }
+          currentAudio = peteTiredAudio;
+          peteTiredAudio.play();
+          // Mark this audio as played in the current dialogue
+          audioPlayed[`pete_${currentQuestion}_final`] = true;
+        }
       },
       "textbox": () => {
         // This is now handled in mousePressed
@@ -1006,6 +1028,7 @@ function handlePeteResponse(response) {
 }
 
 // Handle Meowchi's dialogue responses - UPDATED FOR NEW SEQUENCE
+// Handle Meowchi's dialogue responses - UPDATED FOR NEW SEQUENCE
 function handleMeowchiResponse(response) {
   showOptions = false;
   timerStarted = true; // Keep timer active for Meowchi's responses
@@ -1027,12 +1050,6 @@ function handleMeowchiResponse(response) {
         meowishSequenceActive = true;
         displayTimer = millis(); // Reset timer for the confused face transition
         
-        // Force play the confused audio right away
-        resetAudioForNewDialogue();
-        setTimeout(() => {
-          playAudioForState("meowchi", "meow meow me-meow meow?");
-        }, 50);
-        
         // Change the image after 1 second
         setTimeout(() => {
           // Replace the current question with the concerned face version
@@ -1042,11 +1059,9 @@ function handleMeowchiResponse(response) {
           responseOptions = ["Subtitle Translation", "re-chose barista"];
           showOptions = true;
           
-          // Force play audio for this new state
+          // Play audio for concerned face here
           resetAudioForNewDialogue();
-          setTimeout(() => {
-            playAudioForState("meowchi", "concerned_meow");
-          }, 50);
+          playAudioForState("meowchi", "concerned_meow");
         }, 1000);
       },
       "Meow": () => {
@@ -1062,6 +1077,10 @@ function handleMeowchiResponse(response) {
           // Set responses to show after the confused face
           responseOptions = ["Subtitle Translation", "re-chose barista"];
           showOptions = true;
+          
+          // Play audio for concerned face here
+          resetAudioForNewDialogue();
+          playAudioForState("meowchi", "concerned_meow");
         }, 1000);
       },
       "Subtitle Translation": () => {
@@ -1072,23 +1091,23 @@ function handleMeowchiResponse(response) {
     },
     
     "concerned_meow": {
-  // Path 1 continues: R3.1 options
-  "Subtitle Translation": () => {
-    // Currently jumps straight to concerned_french
-    // Should instead show language options like in the original path
-    responseOptions = ["French", "English"];
-    // Keep showing the same concerned meow face
-    showOptions = true;
-  },
-  "re-chose barista": () => {
-    state = "selection";
-  },
-  "French": () => {
-    // When French is selected from the concerned face
-    currentQuestion = "concerned_french"; // Using a special key for the French with concerned face
-    responseOptions = ["For here", "A drink"];
-  }
-},
+      // Path 1 continues: R3.1 options
+      "Subtitle Translation": () => {
+        // Currently jumps straight to concerned_french
+        // Should instead show language options like in the original path
+        responseOptions = ["French", "English"];
+        // Keep showing the same concerned meow face
+        showOptions = true;
+      },
+      "re-chose barista": () => {
+        state = "selection";
+      },
+      "French": () => {
+        // When French is selected from the concerned face
+        currentQuestion = "concerned_french"; // Using a special key for the French with concerned face
+        responseOptions = ["For here", "A drink"];
+      }
+    },
     
     "French": () => {
       // Path 2 continues: Q4.2 - From normal face after selecting Subtitle Translation -> French
@@ -1245,6 +1264,15 @@ function handleMeowchiResponse(response) {
         setTimeout(() => {
           currentQuestion = "MEOWCHI_Q8"; // Final drink message
           
+          // Force play the kind audio
+          if (meowchiKindAudio) {
+            if (currentAudio && currentAudio.isPlaying()) {
+              currentAudio.stop();
+            }
+            currentAudio = meowchiKindAudio;
+            meowchiKindAudio.play();
+          }
+          
           // After 4 seconds, transition to the meowchi_end screen
           setTimeout(() => {
             state = "meowchi_end";
@@ -1271,6 +1299,15 @@ function handleMeowchiResponse(response) {
         setTimeout(() => {
           currentQuestion = "MEOWCHI_Q8"; // Final drink message
           
+          // Force play the kind audio
+          if (meowchiKindAudio) {
+            if (currentAudio && currentAudio.isPlaying()) {
+              currentAudio.stop();
+            }
+            currentAudio = meowchiKindAudio;
+            meowchiKindAudio.play();
+          }
+          
           // After 4 seconds, return to mug
           setTimeout(() => {
             state = "meowchi_end";
@@ -1293,9 +1330,11 @@ function handleMeowchiResponse(response) {
   if (previousQuestion !== currentQuestion) {
     resetAudioForNewDialogue();
   }
-  setTimeout(() => {
+  
+  // Play audio for new state if needed
+  if (previousQuestion !== currentQuestion) {
     playAudioForState("meowchi", currentQuestion);
-  }, 50);
+  }
 }
 
 // Start Meowchi's dialogue sequence - UPDATED FOR NEW SEQUENCE
@@ -1469,7 +1508,6 @@ function playAudioForState(state, question) {
     }
     
     // Generate a unique key for this dialogue state
-    // Include peteRepeatCount for Pete to differentiate between facial expressions
     const dialogueKey = state === "pete" ? 
       `${state}_${question}_${peteRepeatCount}` : 
       `${state}_${question}`;
@@ -1488,87 +1526,101 @@ function playAudioForState(state, question) {
     
     // Determine which audio to play based on Pete's dialogue states
     if (state === "pete") {
+      // Pete's audio logic remains the same
       if (question === "Can I take your order please?") {
-        // Now directly use peteRepeatCount to determine the audio
         if (peteRepeatCount === 0) {
-          audioToPlay = peteDefaultAudio; // Q1: Normal face
-          console.log("Playing pete_default at Q1");
+          audioToPlay = peteDefaultAudio;
         } else if (peteRepeatCount === 1) {
-          audioToPlay = peteConfusedAudio; // Q2: Confused face
-          console.log("Playing pete_confused at Q2");
+          audioToPlay = peteConfusedAudio;
         } else if (peteRepeatCount >= 2) {
-          audioToPlay = peteTiredAudio; // Q3.1: Tired face
-          console.log("Playing pete_tired at Q3.1");
+          audioToPlay = peteTiredAudio;
         }
       } 
       else if (question === "Okay then…NEXT CUSTOMER!") {
-        audioToPlay = peteAngryAudio; // Q3.R2
+        audioToPlay = peteAngryAudio; 
       }
       else if (question === "What can I get you?") {
-        audioToPlay = peteDefaultAudio; // Q3.2
+        audioToPlay = peteDefaultAudio;
       }
       else if (question.includes("ok then") && !question.includes("here's your drink")) {
-        audioToPlay = peteConfusedAudio; // Q5.1
+        audioToPlay = peteConfusedAudio;
       }
       else if (question === "YOUR NAME?!!!") {
-        audioToPlay = peteAngryAudio; // Q5.2
+        audioToPlay = peteAngryAudio;
       }
       else if (question.includes("here's your drink")) {
-        audioToPlay = peteTiredAudio; // Q6
+        audioToPlay = peteTiredAudio;
       }
     }
-    // Meowchi's audio states - fixed according to requirements
+    // FIXED Meowchi's audio states according to requirements
     else if (state === "meowchi") {
       if (question === "[speaks in Meowish]") {
-        audioToPlay = meowchiDefaultAudio; // Q1
+        audioToPlay = meowchiDefaultAudio; // M_Q1.png - Play audio for first set of options
       }
+      // M_Q2.png should NOT play any audio
       else if (question === "meow meow me-meow meow?" && !meowishSequenceActive) {
-        audioToPlay = meowchiDefaultAudio; // Q2: Normal face
+        return; // No audio for normal face meow (M_Q2.png)
       }
-      else if (question === "concerned_meow" || 
-               (question === "meow meow me-meow meow?" && meowishSequenceActive)) {
-        audioToPlay = meowchiConfusedAudio; // Q3.1: Concerned face
+      else if (question === "concerned_meow") {
+        audioToPlay = meowchiConfusedAudio; // M_Q3.png - Play confused audio when it first appears
       }
       else if (question === "concerned_french") {
-        audioToPlay = meowchiWorriedAudio; // Q4.1: With concerned face
+        audioToPlay = meowchiConfusedAudio; // M_Q4.1.png - Play worried/concerned audio
       }
       else if (question === "normal_french") {
-        audioToPlay = meowchiDefaultAudio; // Q4.2: With normal face
+        audioToPlay = meowchiDefaultAudio; // M_Q4.2.png - Play default audio
       }
       else if (question === "D'accord.. Vous etes pret?") {
-        audioToPlay = meowchiWorriedAudio; // Q5
+        audioToPlay = meowchiWorriedAudio; // M_Q5.png - Play worried audio
       }
       else if (question === "Oh d'accord alors…") {
-        audioToPlay = meowchiWorriedAudio; // Q6.1
+        audioToPlay = meowchiWorriedAudio; // M_Q5.1.png - Play worried audio
       }
       else if (question === "Quelle boisson veux-tu?") {
-        audioToPlay = meowchiDefaultAudio; // Q6.2
+        audioToPlay = meowchiDefaultAudio; // M_Q5.2.png - Play default audio
       }
-      else if (question === "MEOWCHI_Q7_1") { // "[Name]?" hmmm
-        audioToPlay = meowchiConfusedAudio; // Q8.1
+      else if (question === "MEOWCHI_Q7_1") {
+        audioToPlay = meowchiConfusedAudio; // M_Q7.1.png - Play confused audio
       }
       else if (question === "… votre nom?") {
-        audioToPlay = meowchiWorriedAudio; // Q8.2
+        audioToPlay = meowchiWorriedAudio; // M_Q7.2.png - Play worried audio
       }
-      else if (question === "MEOWCHI_Q7_3") { // "[Name], d'accord"
-        audioToPlay = meowchiWorriedAudio; // Q9.1
+      else if (question === "MEOWCHI_Q7_3") {
+        audioToPlay = meowchiWorriedAudio; // M_Q7.3.png - Play worried audio
       }
-      else if (question === "MEOWCHI_Q8") { // Final drink message
-        audioToPlay = meowchiKindAudio; // Q9.2
+      else if (question === "MEOWCHI_Q8") {
+        // M_Q8.png should ALWAYS play kind audio, so we'll remove the check
+        // that prevents replaying audio for the same state
+        currentAudio = meowchiKindAudio;
+        meowchiKindAudio.play();
+        console.log(`Playing kind audio for: ${state} - ${question}`);
+        return; // Skip the normal audio playback path
       }
     }
     
     // Play the selected audio
-    if (audioToPlay) {
-      currentAudio = audioToPlay;
-      audioToPlay.play();
-      audioPlayed[dialogueKey] = true;
-      console.log(`Playing audio for: ${state} - ${question}`);
-    }
+    // Play the selected audio
+if (audioToPlay) {
+  currentAudio = audioToPlay;
+  
+  // Set volume specifically for Meowchi's audio files
+  if (state === "meowchi") {
+    // Increase Meowchi's audio volume to 1.5 times the normal level
+    audioToPlay.setVolume(2);
+  } else {
+    // Keep Pete's audio at normal volume
+    audioToPlay.setVolume(1.2);
+  }
+  
+  audioToPlay.play();
+  audioPlayed[dialogueKey] = true;
+  console.log(`Playing audio for: ${state} - ${question}`);
+}
   } catch (e) {
     console.error('Error playing audio:', e);
   }
 }
+
 function resetAudioForNewDialogue() {
   try {
     // Stop any currently playing audio
@@ -2777,61 +2829,63 @@ function drawTextInputOnBlank(x, y, width, height) {
 function mousePressed() {
   try {
   // Handle barista selection
-  if (state === "selection") {
-    if (baristaPeteImage && baristaMeowchiImage) {
-      // Calculate image dimensions and positions (same as in drawBaristaSelection)
-      const imageHeight = height * 0.15; // 15% of screen height
-      const peteWidth = (imageHeight / baristaPeteImage.height) * baristaPeteImage.width;
-      const meowchiWidth = (imageHeight / baristaMeowchiImage.height) * baristaMeowchiImage.width;
-      
-      const spacing = width * 0.1;
-      const totalWidth = peteWidth + meowchiWidth + spacing;
-      const startX = (width - totalWidth) / 2;
-      
-      // Position them at 90% from the top
-      const startY = height * 0.90 - imageHeight;
-      
-      // Check if clicked on Pete's image
-      if (mouseX >= startX && mouseX < startX + peteWidth &&
-          mouseY >= startY && mouseY < startY + imageHeight) {
-        selectedBarista = "pete";
-        state = "pete";
-        startPeteDialogue();
-        return;
-      }
-      
-      // Check if clicked on Meowchi's image
-      if (mouseX >= startX + peteWidth + spacing && mouseX < startX + peteWidth + spacing + meowchiWidth &&
-          mouseY >= startY && mouseY < startY + imageHeight) {
-        selectedBarista = "meowchi";
-        state = "meowchi";
-        startMeowchiDialogue();
-        return;
-      }
-    } else {
-      // Fallback using the old button positions if images didn't load
-      const buttonWidth = width/5;
-      const buttonHeight = height/6;
-      
-      // Check Pete button
-      if (mouseX > width/4 - buttonWidth/2 && mouseX < width/4 + buttonWidth/2 && 
-          mouseY > height * 0.9 - buttonHeight/2 && mouseY < height * 0.9 + buttonHeight/2) {
-        selectedBarista = "pete";
-        state = "pete";
-        startPeteDialogue();
-        return;
-      }
-      
-      // Check Meowchi button
-      if (mouseX > 3*width/4 - buttonWidth/2 && mouseX < 3*width/4 + buttonWidth/2 && 
-          mouseY > height * 0.9 - buttonHeight/2 && mouseY < height * 0.9 + buttonHeight/2) {
-        selectedBarista = "meowchi";
-        state = "meowchi";
-        startMeowchiDialogue();
-        return;
-      }
+if (state === "selection") {
+  if (baristaPeteImage && baristaMeowchiImage) {
+    // Calculate image dimensions and positions (same as in drawBaristaSelection)
+    const imageHeight = height * 0.15; // 15% of screen height
+    const peteWidth = (imageHeight / baristaPeteImage.height) * baristaPeteImage.width;
+    const meowchiWidth = (imageHeight / baristaMeowchiImage.height) * baristaMeowchiImage.width;
+    
+    const spacing = width * 0.05;
+    const totalWidth = peteWidth + meowchiWidth + spacing;
+    const startX = (width - totalWidth) / 2;
+    
+    // Position them at 85% from the top (match the drawing function)
+    const startY = height * 0.85 - imageHeight;
+    
+    // Check if clicked on Pete's image
+    if (mouseX >= startX && mouseX < startX + peteWidth &&
+        mouseY >= startY && mouseY < startY + imageHeight) {
+      console.log("Pete selected");
+      selectedBarista = "pete";
+      state = "pete";
+      startPeteDialogue();
+      return;
+    }
+    
+    // Check if clicked on Meowchi's image
+    if (mouseX >= startX + peteWidth + spacing && mouseX < startX + peteWidth + spacing + meowchiWidth &&
+        mouseY >= startY && mouseY < startY + imageHeight) {
+      console.log("Meowchi selected");
+      selectedBarista = "meowchi";
+      state = "meowchi";
+      startMeowchiDialogue();
+      return;
+    }
+  } else {
+    // Fallback using buttons if images didn't load
+    const buttonWidth = width/5;
+    const buttonHeight = height/6;
+    
+    // Check Pete button
+    if (mouseX > width/4 - buttonWidth/2 && mouseX < width/4 + buttonWidth/2 && 
+        mouseY > height * 0.9 - buttonHeight/2 && mouseY < height * 0.9 + buttonHeight/2) {
+      selectedBarista = "pete";
+      state = "pete";
+      startPeteDialogue();
+      return;
+    }
+    
+    // Check Meowchi button
+    if (mouseX > 3*width/4 - buttonWidth/2 && mouseX < 3*width/4 + buttonWidth/2 && 
+        mouseY > height * 0.9 - buttonHeight/2 && mouseY < height * 0.9 + buttonHeight/2) {
+      selectedBarista = "meowchi";
+      state = "meowchi";
+      startMeowchiDialogue();
+      return;
     }
   }
+}
 
   // Handle response options for Pete dialogue
   else if (showOptions && state === "pete") {
