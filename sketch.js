@@ -206,7 +206,7 @@ function preload() {
     
     // Load blank image for text input
     blankInputImage = loadGameImage('P_R4.Blank.png', [240, 240, 255]);
-    checkmarkImage = loadGameImage('check.png', [100, 255, 100]);
+    checkmarkImage = loadGameImage('Check.png', [100, 255, 100]);
     
     // Load response images
     const imageKeys = ['P_R1.1', 'R_NO', 'R_YES', 'P_R3.1', 'P_R3.2', 'P_R3.3', 'P_R4.2'];
