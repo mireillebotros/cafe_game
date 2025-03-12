@@ -79,6 +79,11 @@ let peteEndImage, meowchiEndImage; // End screen images
 let baristaSelectionBackground; // Background for barista selection screen
 let baristaPeteImage, baristaMeowchiImage; // Barista selection images
 
+let insideVideo;
+let insideVideoPlaying = false;
+let insideVideoLoaded = false;
+let insideVideoFinished = false;
+
 // Image loading handling function
 function loadGameImage(path, fallbackColor) {
   return loadImage(path,
@@ -108,10 +113,15 @@ function videoIsPlaying(video) {
 
 function forcePlayVideo() {
   if (introVideo && introVideoLoaded && state === "intro") {
-    // Using a user gesture to play video
+    // Using a user gesture to play intro video
     introVideo.loop();
     introVideo.volume(1);
-    console.log('Forcing video play from user gesture');
+    console.log('Forcing intro video play from user gesture');
+  } else if (insideVideo && insideVideoLoaded && state === "inside") {
+    // Using a user gesture to play inside video
+    insideVideo.play();
+    insideVideo.volume(1);
+    console.log('Forcing inside video play from user gesture');
   }
 }
 
@@ -152,6 +162,28 @@ function preload() {
     } catch (e) {
       console.error('Failed to load BG_introVID.mp4:', e);
       introVideo = null;
+    }
+
+    try {
+      insideVideo = createVideo(['BG_inside.mp4']);
+      insideVideo.hide(); // Hide the video element by default
+      
+      // Preload the video to ensure it's ready to play
+      insideVideo.elt.preload = "auto"; // Force preloading
+      insideVideo.elt.load(); // Start loading immediately
+      
+      // Set video attributes
+      insideVideo.elt.muted = false;
+      insideVideo.elt.playsinline = true;
+      insideVideo.elt.controls = false;
+      
+      // Add event listener for when the video ends
+      insideVideo.elt.addEventListener('ended', insideVideoEnded);
+      
+      console.log('BG_inside.mp4 loading started');
+    } catch (e) {
+      console.error('Failed to load BG_inside.mp4:', e);
+      insideVideo = null;
     }
 
     backgroundMusic = loadSound('constant_audio.mp3', 
@@ -339,6 +371,22 @@ function preload() {
   } catch (e) {
     console.error('Error loading assets:', e);
   }
+}
+
+function insideVideoEnded() {
+  console.log("Inside video playback complete");
+  insideVideoPlaying = false;
+  insideVideoFinished = true;
+  
+  // Hide the video element
+  if (insideVideo) {
+    insideVideo.stop();
+    insideVideo.hide();
+  }
+  
+  // Transition to barista selection
+  state = "selection";
+  console.log("Transitioning to barista selection after inside video");
 }
 
 function videoLoaded() {
@@ -533,29 +581,26 @@ function manageBackgroundMusic() {
 function keyPressed() {
 try {
   if (state === "intro" && keyCode === ENTER) {
-    console.log("Enter key pressed, transitioning to selection");
+    console.log("Enter key pressed, transitioning to inside video");
     
-    // Clean up video
+    // Clean up intro video
     if (introVideo) {
       introVideo.stop();
     }
-
-    if (backgroundMusic && !backgroundMusic.isPlaying()) {
-      backgroundMusic.setVolume(musicVolume);
-      backgroundMusic.loop();
-      console.log("Starting background music");
+  
+    // Start playing the inside video
+    state = "inside";
+    insideVideoPlaying = true;
+    insideVideoFinished = false;
+    
+    if (insideVideo) {
+      insideVideo.play(); // Play once, not loop
+      insideVideo.volume(1);
+      console.log("Starting inside video");
+    } else {
+      // If video failed to load, go straight to selection
+      state = "selection";
     }
-    
-    // Force clean transition
-    clear();
-    
-    // Set state first
-    state = "selection";
-    
-    // Reset game variables
-    showBlankImage = false;
-    showOptions = false;
-    selectedBarista = "";
     
     return false;
   }
@@ -1416,116 +1461,6 @@ function drawIntroScreen() {
   }
 }
 
-// function playAudioForState(state, question) {
-//   try {
-//     // Don't play audio for video states (they have their own audio)
-//     if (question === "Ya! What ……..?" || question === "Compris. Puis-je avoir ton n-BLENDERRRR") {
-//       return;
-//     }
-    
-//     // Generate a unique key for this dialogue state
-//     // const dialogueKey = `${state}_${question}`;
-//     const dialogueKey = state === "pete" ? 
-//     `${state}_${question}_${peteRepeatCount}` : 
-//     `${state}_${question}`;
-  
-    
-//     // Skip if we've already played audio for this state
-//     if (audioPlayed[dialogueKey]) {
-//       return;
-//     }
-    
-//     // Stop any currently playing audio
-//     if (currentAudio && currentAudio.isPlaying()) {
-//       currentAudio.stop();
-//     }
-    
-//     let audioToPlay = null;
-    
-//     // Determine which audio to play based on Pete's dialogue states
-//     if (state === "pete") {
-//       if (question === "Can I take your order please?") {
-//         // Different audio based on repeat count
-//         if (peteRepeatCount === 0) {
-//           audioToPlay = peteDefaultAudio; // Q1: Normal face
-//         } else if (peteRepeatCount === 1) {
-//           audioToPlay = peteConfusedAudio; // Q2: Confused face
-//         } else {
-//           audioToPlay = peteTiredAudio; // Q3.1: Tired face
-//         }
-//       } 
-//     else if (question === "Okay then…NEXT CUSTOMER!") {
-//       audioToPlay = peteAngryAudio; // Q3.R2
-//     }
-//     else if (question === "What can I get you?") {
-//       audioToPlay = peteDefaultAudio; // Q3.2
-//     }
-//     else if (question.includes("ok then") && !question.includes("here's your drink")) {
-//       audioToPlay = peteConfusedAudio; // Q5.1
-//     }
-//     else if (question === "YOUR NAME?!!!") {
-//       audioToPlay = peteAngryAudio; // Q5.2
-//     }
-//     else if (question.includes("here's your drink")) {
-//       audioToPlay = peteTiredAudio; // Q6
-//     }
-//   }
-//   // Determine which audio to play based on Meowchi's dialogue states
-//   else if (state === "meowchi") {
-//     if (question === "[speaks in Meowish]") {
-//       audioToPlay = meowchiDefaultAudio; // Q1
-//     }
-//     else if (question === "meow meow me-meow meow?" && !meowishSequenceActive) {
-//       audioToPlay = meowchiDefaultAudio; // Q2: Normal face
-//     }
-//     else if (question === "concerned_meow" || 
-//             (question === "meow meow me-meow meow?" && meowishSequenceActive)) {
-//       audioToPlay = meowchiConfusedAudio; // Q3.1: Concerned face
-//     }
-//     else if (question === "concerned_french") {
-//       audioToPlay = meowchiWorriedAudio; // Q4.1: With concerned face
-//     }
-//     else if (question === "normal_french") {
-//       audioToPlay = meowchiDefaultAudio; // Q4.2: With normal face
-//     }
-//     else if (question === "D'accord.. Vous etes pret?") {
-//       audioToPlay = meowchiWorriedAudio; // Q5
-//     }
-//     else if (question === "Oh d'accord alors…") {
-//       audioToPlay = meowchiWorriedAudio; // Q6.1
-//     }
-//     else if (question === "Quelle boisson veux-tu?") {
-//       audioToPlay = meowchiDefaultAudio; // Q6.2
-//     }
-//     else if (question === "MEOWCHI_Q7_1") { // "[Name]?" hmmm
-//       audioToPlay = meowchiConfusedAudio; // Q8.1
-//     }
-//     else if (question === "… votre nom?") {
-//       audioToPlay = meowchiWorriedAudio; // Q8.2
-//     }
-//     else if (question === "MEOWCHI_Q7_3") { // "[Name], d'accord"
-//       audioToPlay = meowchiWorriedAudio; // Q9.1
-//     }
-//     else if (question === "MEOWCHI_Q8") { // Final drink message
-//       audioToPlay = meowchiKindAudio; // Q9.2
-//     }
-//   }
-  
-//   // Play the selected audio
-//   if (audioToPlay) {
-//     currentAudio = audioToPlay;
-//     audioToPlay.play();
-//     audioPlayed[dialogueKey] = true;
-//     console.log(`Playing audio for: ${state} - ${question}`);
-//   }
-//   } catch (e) {
-//     console.error('Error playing audio:', e);
-//   }
-// }
-
-// AUDIO FUNCTION - Reset audio state when dialogue changes
-
-// AUDIO FUNCTION - Function to play audio based on the current dialogue state
 function playAudioForState(state, question) {
   try {
     // Don't play audio for video states (they have their own audio)
@@ -1698,6 +1633,9 @@ function draw() {
       case "intro":
         drawIntroScreen();
         break;
+      case "inside":
+        drawInsideVideo();
+        break;
       case "selection":
         drawBaristaSelection();
         showBlankImage = false;
@@ -1728,6 +1666,30 @@ function draw() {
     background(255, 0, 0);
     fill(255);
     text('An error occurred. Please check console.', width/2, height/2);
+  }
+}
+
+function drawInsideVideo() {
+  // Check if video element exists
+  if (insideVideo) {
+    // Draw the video filling the canvas
+    image(insideVideo, 0, 0, width, height);
+    
+    // Simple error handling - if video isn't playing attempt to play it
+    if (frameCount % 60 === 0) { // Try every ~1 second
+      if (insideVideo.elt.paused && !insideVideoFinished) {
+        insideVideo.play();
+        insideVideo.volume(1);
+      }
+    }
+    
+    // If the video has ended but the state hasn't changed
+    if (insideVideoFinished) {
+      state = "selection";
+    }
+  } else {
+    // Fallback if video object doesn't exist, go to selection
+    state = "selection";
   }
 }
 
